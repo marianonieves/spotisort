@@ -4,39 +4,69 @@ import {
   getMyPlaylists,
   getPlaylistTracks,
   createPlaylist,
-  addItemsToPlaylist,
-  replacePlaylistItems,
+  addPlaylistItems,
+  overwritePlaylistItems,
+  // getAudioFeatures,
 } from "./spotify.js";
 
+
+function trackEvent(event, params = {}) {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event, ...params });
+}
 const $ = (id) => document.getElementById(id);
 
 const loginBtn = $("loginBtn");
 const logoutBtn = $("logoutBtn");
 const meEl = $("me");
 const statusEl = $("status");
-const appEl = $("app");
-
+const appSection = $("appSection");
 const playlistSelect = $("playlistSelect");
 const loadBtn = $("loadBtn");
+
 const intelligentBtn = $("intelligentBtn");
 const randomBtn = $("randomBtn");
+
+const exportBtn = $("exportBtn");
+const shareBtn = $("shareBtn");
+const shareMsg = $("shareMsg");
 const saveBtn = $("saveBtn");
 const overwriteBtn = $("overwriteBtn");
+const saveStatus = $("saveStatus");
+const featuresWarning = $("featuresWarning");
 const tbody = $("table").querySelector("tbody");
-const tableMeta = $("tableMeta");
+const stats = $("stats");
+const thead = $("table").querySelector("thead");
 
-let currentRows = [];     // original loaded rows
-let displayedRows = [];   // current sorted rows
-let currentPlaylistId = null;
-let sortState = { field: "popularity", dir: "desc" }; // default
+let me = null;
+let currentPlaylist = null; // {id,name}
+let currentRows = []; // [{ track }]
+let visibleRows = []; // sorted rows
 
-function track(event, params = {}) {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event, ...params });
+const sortState = {
+  field: "popularity",
+  dir: "desc", // 'asc' | 'desc'
+};
+
+function setStatus(msg) {
+  statusEl.textContent = msg ?? "";
 }
 
-function setStatus(html) {
-  statusEl.innerHTML = html ?? "";
+function getCleanUrl() {
+  const u = new URL(window.location.href);
+  u.search = "";
+  u.hash = "";
+  return u.toString();
+}
+
+function setShareMsg(text) {
+  if (!shareMsg) return;
+  shareMsg.textContent = text ?? "";
+}
+
+function setSaveStatus(msg, { html = false } = {}) {
+  if (html) saveStatus.innerHTML = msg ?? "";
+  else saveStatus.textContent = msg ?? "";
 }
 
 function fmtMs(ms) {
@@ -46,286 +76,341 @@ function fmtMs(ms) {
   return `${m}:${r}`;
 }
 
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-function rowsToTrackUris(rows) {
-  return rows
-    .map((r) => r?.track?.id)
-    .filter(Boolean)
-    .map((id) => `spotify:track:${id}`);
-}
-
-function updateSortIndicators() {
-  document.querySelectorAll("th.sortable").forEach((th) => {
-    const field = th.getAttribute("data-field");
-    if (field === sortState.field) th.setAttribute("data-dir", sortState.dir);
-    else th.removeAttribute("data-dir");
-  });
-}
-
-function renderTable(rows) {
-  displayedRows = rows;
-
-  tbody.innerHTML = "";
-  rows.forEach((row, idx) => {
-    const t = row.track;
-    const artist = (t.artists ?? []).map((a) => a.name).join(", ");
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="col-num">${idx + 1}</td>
-      <td><a href="${t.external_urls?.spotify ?? "#"}" target="_blank" rel="noreferrer">${escapeHtml(t.name ?? "")}</a></td>
-      <td>${escapeHtml(artist)}</td>
-      <td>${t.popularity ?? "—"}</td>
-      <td>${t.duration_ms != null ? fmtMs(t.duration_ms) : "—"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  tableMeta.textContent = `Tracks loaded: ${rows.length}. Current sort: ${sortLabel()}`;
-}
-
-function sortLabel() {
-  if (sortState.field === "__intelligent__") return "Intelligent (popularity ↓, duration ↑)";
-  if (sortState.field === "__random__") return "Random";
-  const name = {
-    name: "Track",
-    artist: "Artist",
-    popularity: "Popularity",
-    duration_ms: "Duration",
-  }[sortState.field] ?? sortState.field;
-  const dir = sortState.dir === "asc" ? "↑" : "↓";
-  return `${name} ${dir}`;
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  }[m]));
-}
-
 function getFieldValue(row, field) {
   const t = row.track;
+  if (field === "index") return row.__index ?? 0;
   if (field === "name") return t?.name ?? "";
-  if (field === "artist") return (t?.artists?.[0]?.name ?? "");
+  if (field === "artist") return (t?.artists ?? [])[0]?.name ?? "";
   if (field === "popularity") return t?.popularity ?? null;
   if (field === "duration_ms") return t?.duration_ms ?? null;
   return null;
 }
 
-function applyStandardSort(field, dir) {
-  sortState = { field, dir };
-  updateSortIndicators();
+function setActiveHeader() {
+  const ths = Array.from(thead.querySelectorAll("th[data-field]"));
+  for (const th of ths) {
+    const f = th.dataset.field;
+    if (f === sortState.field) {
+      th.classList.add("active");
+      th.setAttribute("data-dir", sortState.dir === "asc" ? "▲" : "▼");
+    } else {
+      th.classList.remove("active");
+      th.removeAttribute("data-dir");
+    }
+  }
+}
 
-  const rows = [...currentRows];
+function applySort() {
+  const { field, dir } = sortState;
+  const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+
   rows.sort((a, b) => {
     const va = getFieldValue(a, field);
     const vb = getFieldValue(b, field);
 
-    // strings
+    // Strings
     if (typeof va === "string" || typeof vb === "string") {
       const sa = String(va ?? "");
       const sb = String(vb ?? "");
       return dir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
     }
 
-    // numbers (nulls last)
-    const na = (typeof va === "number") ? va : Infinity;
-    const nb = (typeof vb === "number") ? vb : Infinity;
+    // Numbers
+    const na = typeof va === "number" ? va : -Infinity;
+    const nb = typeof vb === "number" ? vb : -Infinity;
     return dir === "asc" ? (na - nb) : (nb - na);
   });
 
-  track("sort_applied", { field, dir });
-  renderTable(rows);
+  visibleRows = rows;
+  renderTable(visibleRows);
+  setActiveHeader();
 }
 
 function applyIntelligentSort() {
-  sortState = { field: "__intelligent__", dir: "desc" };
-  updateSortIndicators();
+  // Criteria:
+  // 1) Higher popularity first
+  // 2) If same popularity, shorter duration first
+  // 3) Tie-breaker: name A→Z
+  const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
 
-  const rows = [...currentRows];
   rows.sort((a, b) => {
-    const pa = a.track.popularity ?? -1;
-    const pb = b.track.popularity ?? -1;
-    if (pb !== pa) return pb - pa; // popularity desc
+    const pa = a.track?.popularity ?? -Infinity;
+    const pb = b.track?.popularity ?? -Infinity;
+    if (pa !== pb) return pb - pa;
 
-    const da = a.track.duration_ms ?? Number.MAX_SAFE_INTEGER;
-    const db = b.track.duration_ms ?? Number.MAX_SAFE_INTEGER;
-    return da - db; // duration asc
+    const da = a.track?.duration_ms ?? Infinity;
+    const db = b.track?.duration_ms ?? Infinity;
+    if (da !== db) return da - db;
+
+    const na = String(a.track?.name ?? "");
+    const nb = String(b.track?.name ?? "");
+    return na.localeCompare(nb, undefined, { sensitivity: "base" });
   });
 
-  track("intelligent_sort");
-  renderTable(rows);
+  // Clear column highlight (this is a custom sort)
+  sortState.field = "__custom__";
+  sortState.dir = "desc";
+  visibleRows = rows;
+  renderTable(visibleRows);
+  setActiveHeader();
+
+  trackEvent("intelligent_sort", {
+    playlist_id: currentPlaylist?.id ?? "",
+    tracks: visibleRows.length,
+  });
 }
 
 function applyRandomSort() {
-  sortState = { field: "__random__", dir: "desc" };
-  updateSortIndicators();
+  const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
 
-  const rows = [...currentRows];
   // Fisher–Yates shuffle
   for (let i = rows.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
 
-  track("random_sort");
-  renderTable(rows);
+  sortState.field = "__custom__";
+  sortState.dir = "desc";
+  visibleRows = rows;
+  renderTable(visibleRows);
+  setActiveHeader();
+
+  trackEvent("random_sort", {
+    playlist_id: currentPlaylist?.id ?? "",
+    tracks: visibleRows.length,
+  });
 }
 
-function wireTableHeaderSorting() {
-  document.querySelectorAll("th.sortable").forEach((th) => {
-    th.addEventListener("click", () => {
-      const field = th.getAttribute("data-field");
-      if (!field) return;
+function renderTable(rows) {
+  tbody.innerHTML = "";
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const t = row.track;
 
-      // toggle direction when clicking same column
-      let dir = "desc";
-      if (sortState.field === field) dir = (sortState.dir === "desc" ? "asc" : "desc");
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="num">${i + 1}</td>
+      <td><a href="${t.external_urls?.spotify ?? "#"}" target="_blank" rel="noreferrer">${t.name ?? ""}</a></td>
+      <td>${(t.artists ?? []).map(a => a.name).join(", ")}</td>
+      <td class="num">${t.popularity ?? "—"}</td>
+      <td class="num">${t.duration_ms != null ? fmtMs(t.duration_ms) : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  stats.textContent = rows.length ? `Tracks: ${rows.length}` : "";
+}
 
-      applyStandardSort(field, dir);
-    });
-  });
+function exportCsv() {
+  const fieldList = ["name", "artists", "popularity", "duration_ms", "url"];
+  const lines = [];
+  lines.push(fieldList.join(","));
+
+  for (const r of visibleRows) {
+    const t = r.track;
+    const row = {
+      name: (t.name ?? "").replaceAll('"', '""'),
+      artists: (t.artists ?? []).map(a => a.name).join(" / ").replaceAll('"', '""'),
+      popularity: t.popularity ?? "",
+      duration_ms: t.duration_ms ?? "",
+      url: t.external_urls?.spotify ?? "",
+    };
+    lines.push(fieldList.map(k => `"${String(row[k] ?? "")}"`).join(","));
+  }
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "spotisort.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function getSortedTrackUris() {
+  return visibleRows
+    .map(r => r.track)
+    .filter(t => t?.id)
+    .map(t => `spotify:track:${t.id}`);
 }
 
 async function saveAsNewPlaylist() {
-  if (!displayedRows.length) return;
+  if (!me?.id) throw new Error("Missing user id");
+  if (!currentPlaylist?.name) throw new Error("Pick a playlist first");
 
-  const me = await getMe();
-  const baseName = playlistSelect.selectedOptions?.[0]?.textContent?.replace(/\s*\(\d+\)\s*$/, "") ?? "Spoti Sort";
-  const newName = `${baseName} (Spoti Sort)`;
+  const uris = getSortedTrackUris();
+  if (!uris.length) throw new Error("No tracks loaded");
 
-  setStatus("Creating a new playlist in Spotify…");
-  track("save_new_playlist", { source_playlist_id: currentPlaylistId });
+  const suffix =
+    sortState.field && sortState.field !== "__custom__"
+      ? `${sortState.field} ${sortState.dir}`
+      : "custom sort";
 
-  const newPl = await createPlaylist(me.id, {
-    name: newName,
-    description: `Sorted by ${sortLabel()} • Created with Spoti Sort`,
+  const name = `${currentPlaylist.name} (SpotiSort · ${suffix})`;
+
+  setSaveStatus("Creating a new playlist…");
+  trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length });
+
+  const created = await createPlaylist(me.id, name, {
+    description: "Sorted with Spoti Sort",
     isPublic: false,
   });
 
-  const uris = rowsToTrackUris(displayedRows);
-  const batches = chunk(uris, 100);
+  setSaveStatus("Adding tracks…");
+  await addPlaylistItems(created.id, uris);
 
-  for (const b of batches) {
-    await addItemsToPlaylist(newPl.id, b);
-  }
-
-  const link = newPl?.external_urls?.spotify || `https://open.spotify.com/playlist/${newPl.id}`;
-  setStatus(`✅ Saved! Open it on Spotify: <a href="${link}" target="_blank" rel="noreferrer">${link}</a>`);
+  const url = created?.external_urls?.spotify || `https://open.spotify.com/playlist/${created.id}`;
+  setSaveStatus(
+    `Done ✅ New playlist created. <a href="${url}" target="_blank" rel="noreferrer">Open it on Spotify</a>`,
+    { html: true }
+  );
+  trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
 }
 
-async function overwritePlaylist() {
-  if (!currentPlaylistId || !displayedRows.length) return;
+async function overwriteCurrentPlaylist() {
+  if (!currentPlaylist?.id) throw new Error("Pick a playlist first");
 
-  const ok = window.confirm("This will overwrite the current playlist order on Spotify. Continue?");
+  const uris = getSortedTrackUris();
+  if (!uris.length) throw new Error("No tracks loaded");
+
+  // Safety confirmation without a modal (keeps it static + simple)
+  const ok = window.confirm(
+    `Overwrite "${currentPlaylist.name}" on Spotify?\n\nThis will replace the track order in the selected playlist.`
+  );
   if (!ok) return;
 
-  setStatus("Overwriting playlist on Spotify…");
-  track("overwrite_playlist", { playlist_id: currentPlaylistId });
+  setSaveStatus("Overwriting playlist order…");
+  trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length });
 
-  const uris = rowsToTrackUris(displayedRows);
-  const batches = chunk(uris, 100);
+  await overwritePlaylistItems(currentPlaylist.id, uris);
 
-  await replacePlaylistItems(currentPlaylistId, batches[0] ?? []);
-  for (const b of batches.slice(1)) {
-    await addItemsToPlaylist(currentPlaylistId, b);
-  }
+  const url = `https://open.spotify.com/playlist/${currentPlaylist.id}`;
+  setSaveStatus(
+    `Done ✅ Playlist updated. <a href="${url}" target="_blank" rel="noreferrer">Open it on Spotify</a>`,
+    { html: true }
+  );
 
-  const link = `https://open.spotify.com/playlist/${currentPlaylistId}`;
-  setStatus(`✅ Saved! Open it on Spotify: <a href="${link}" target="_blank" rel="noreferrer">${link}</a>`);
+  trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
 }
 
 async function init() {
-  // default UI state
-  logoutBtn.disabled = true;
-  loadBtn.disabled = true;
-  intelligentBtn.disabled = true;
-  randomBtn.disabled = true;
-  saveBtn.disabled = true;
-  overwriteBtn.disabled = true;
-
-  loginBtn.addEventListener("click", () => {
-    track("login_click");
+  loginBtn.onclick = () => {
+    trackEvent("login_click");
     login();
-  });
+  };
 
-  logoutBtn.addEventListener("click", () => {
-    track("logout_click");
+  logoutBtn.onclick = () => {
+    trackEvent("logout_click");
     logout();
     window.location.reload();
-  });
+  };
 
-  wireTableHeaderSorting();
+  intelligentBtn.onclick = () => applyIntelligentSort();
+  randomBtn.onclick = () => applyRandomSort();
+
+  exportBtn.onclick = () => {
+    trackEvent("export_csv", { playlist_id: currentPlaylist?.id ?? "", tracks: visibleRows.length });
+    exportCsv();
+  };
+
+  saveBtn.onclick = () =>
+    saveAsNewPlaylist().catch((e) =>
+      setSaveStatus(`Error: ${e?.message ?? String(e)}`)
+    );
+
+  overwriteBtn.onclick = () =>
+    overwriteCurrentPlaylist().catch((e) =>
+      setSaveStatus(`Error: ${e?.message ?? String(e)}`)
+    );
+
+  // Click-to-sort
+  thead.addEventListener("click", (ev) => {
+    const th = ev.target.closest("th[data-field]");
+    if (!th) return;
+    const field = th.dataset.field;
+    if (!field || field === "index") return;
+
+    if (sortState.field === field) {
+      sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      sortState.field = field;
+      sortState.dir = "desc";
+    }
+
+    trackEvent("sort_column", {
+      playlist_id: currentPlaylist?.id ?? "",
+      field,
+      dir: sortState.dir,
+    });
+
+    applySort();
+  });
 
   const token = getToken();
   if (!token?.access_token) {
-    setStatus("Login to start sorting your playlists.");
+    setStatus("Not authenticated. Click “Login with Spotify”.");
+    appSection.classList.add("hidden");
+    logoutBtn.classList.add("hidden");
+    meEl.classList.add("hidden");
     return;
   }
 
-  // authenticated
-  appEl.classList.remove("hidden");
-  logoutBtn.disabled = false;
-
+  // Logged in
   setStatus("Loading your profile and playlists…");
-  const me = await getMe();
-  meEl.textContent = me.display_name ? `@${me.display_name}` : (me.id ? `@${me.id}` : "");
-  track("authed");
+  appSection.classList.remove("hidden");
+  logoutBtn.classList.remove("hidden");
+  meEl.classList.remove("hidden");
+  loginBtn.classList.add("hidden");
+
+  me = await getMe();
+  meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
-  // alphabetical sort
-  playlists.sort((a, b) =>
-    (a.name ?? "").localeCompare((b.name ?? ""), "es", { sensitivity: "base" })
-  );
+  playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
 
   playlistSelect.innerHTML =
-    `<option value="">(select one)</option>` +
-    playlists.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.tracks?.total ?? 0})</option>`).join("");
+    `<option value="">Select a playlist…</option>` +
+    playlists.map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
 
-  track("playlists_loaded", { count: playlists.length });
   loadBtn.disabled = false;
-  setStatus("Pick a playlist and load tracks.");
+  exportBtn.disabled = true;
+  saveBtn.disabled = true;
+  overwriteBtn.disabled = true;
+  intelligentBtn.disabled = true;
+  randomBtn.disabled = true;
 
-  loadBtn.addEventListener("click", async () => {
+  loadBtn.onclick = async () => {
     const pid = playlistSelect.value;
     if (!pid) return;
 
-    currentPlaylistId = pid;
+    featuresWarning.textContent = "";
+    setSaveStatus("");
+    tbody.innerHTML = "";
+    stats.textContent = "";
+
+    const selectedName = playlistSelect.options[playlistSelect.selectedIndex]?.textContent ?? "";
+    currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
+
     setStatus("Loading tracks…");
-    track("playlist_load", { playlist_id: pid });
-
     const tracks = await getPlaylistTracks(pid);
-    currentRows = tracks.map((t) => ({ track: t }));
+    currentRows = tracks.map(t => ({ track: t }));
 
-    // Default sort: popularity desc
-    applyStandardSort("popularity", "desc");
-
-    intelligentBtn.disabled = false;
-    randomBtn.disabled = false;
+    applySort();
+    setStatus("Ready.");
+    exportBtn.disabled = false;
     saveBtn.disabled = false;
     overwriteBtn.disabled = false;
+    intelligentBtn.disabled = false;
+    randomBtn.disabled = false;
 
-    track("playlist_tracks_loaded", { playlist_id: pid, count: tracks.length });
-    setStatus("Loaded. Click headers to sort, or use Intelligent / Random sort, then save to Spotify.");
-  });
+    trackEvent("playlist_loaded", {
+      playlist_id: pid,
+      tracks: currentRows.length,
+    });
+  };
 
-  intelligentBtn.addEventListener("click", applyIntelligentSort);
-  randomBtn.addEventListener("click", applyRandomSort);
-  saveBtn.addEventListener("click", saveAsNewPlaylist);
-  overwriteBtn.addEventListener("click", overwritePlaylist);
+  setStatus("Ready.");
 }
 
 init().catch((e) => {
   console.error(e);
-  track("app_error", { message: String(e?.message ?? e) });
-  setStatus(`Error: ${escapeHtml(e?.message ?? String(e))}`);
+  setStatus("Error: " + (e?.message ?? String(e)));
 });

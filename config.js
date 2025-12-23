@@ -1,16 +1,16 @@
-// Spoti Sort config
-// Client ID (safe to expose on frontend).
-// Make sure your Spotify app has this Redirect URI (exact match):
-//   https://marianonieves.github.io/spotisort/callback.html
+// Spotify
 export const SPOTIFY_CLIENT_ID = "138161381bb34742b05c25c5a82fdc59";
 
-// OAuth scopes needed for reading + saving playlists
 export const SCOPES = [
   "playlist-read-private",
   "playlist-read-collaborative",
+  // Needed to save a new sorted playlist (or overwrite an existing one)
   "playlist-modify-public",
   "playlist-modify-private",
 ].join(" ");
+
+// Google Analytics 4 (optional). Example: "G-XXXXXXXXXX". Leave empty to disable.
+export const GA_MEASUREMENT_ID = "";
 
 export function getRedirectUri() {
   const url = new URL(window.location.href);

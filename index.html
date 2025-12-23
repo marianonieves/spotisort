@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Spoti Sort</title>
 
+  
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -12,120 +13,144 @@
   'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
   })(window,document,'script','dataLayer','GTM-N7H26368');</script>
   <!-- End Google Tag Manager -->
+<link rel="stylesheet" href="./styles.css" />
 
-  <link rel="stylesheet" href="./styles.css" />
+  <!-- Favicons -->
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="./favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="./favicon-16x16.png" sizes="16x16">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
+  <link rel="manifest" href="./site.webmanifest">
+  <meta name="theme-color" content="#1ED760">
 </head>
+
 <body>
+  
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-N7H26368"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
-
-  <div class="page">
-    <header class="header">
+<div class="page">
+    <header class="hero">
       <div class="brand">
-        <div class="mark" aria-hidden="true"></div>
-        <div class="brandText">SPOTI<span class="muted">SORT</span></div>
+        <div class="brandMark" aria-hidden="true"></div>
+        <div class="brandText">SPOTI SORT</div>
       </div>
-      <div class="headerRight">
-        <span id="me" class="me"></span>
-        <button id="logoutBtn" class="btn btn-ghost" type="button">Logout</button>
+
+      <h1>Sort Your <span class="accent">PLAYLISTs</span></h1>
+      <p class="subtitle">
+        A lightweight tool for playlist makers — sort by popularity (and more) to keep listeners engaged.
+      </p>
+
+      <div class="ctaRow">
+        <button id="loginBtn" class="spotifyBtn" type="button">
+          <svg class="spotifyIcon" viewBox="0 0 168 168" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M84 0C37.7 0 0 37.7 0 84s37.7 84 84 84 84-37.7 84-84S130.3 0 84 0zm38.3 121.2c-1.6 2.6-5 3.4-7.6 1.8-20.8-12.7-47-15.6-77.7-8.6-3 .7-6.1-1.1-6.8-4.1-.7-3 1.1-6.1 4.1-6.8 33.8-7.4 63.1-4.1 86.5 10.1 2.6 1.6 3.4 5 1.5 7.6zM133 99.4c-2 3.2-6.1 4.2-9.3 2.2-23.8-14.6-60.1-18.8-88.2-10.3-3.6 1.1-7.4-.9-8.5-4.5-1.1-3.6.9-7.4 4.5-8.5 32.1-9.7 72-5 99.6 11.9 3.1 2 4.1 6.1 1.9 9.2zM134 76.1c-28.5-16.9-75.5-18.4-102.7-10.1-4.3 1.3-8.8-1.1-10.1-5.4-1.3-4.3 1.1-8.8 5.4-10.1 31.2-9.5 83.1-7.7 115.9 11.8 3.8 2.3 5.1 7.2 2.8 11-2.2 3.8-7.2 5.1-10.1 2.8z"/>
+          </svg>
+          Login with Spotify
+        </button>
+
+        <button id="logoutBtn" class="ghostBtn hidden" type="button">Logout</button>
+        <span id="me" class="me hidden"></span>
       </div>
+
+      <p id="status" class="status"></p>
     </header>
 
-    <main class="main">
-      <section class="hero">
-        <h1>Sort your playlists for better engagement</h1>
-        <p class="lead">
-          Spoti Sort is a simple tool for playlist curators. Ordering songs by popularity helps your playlist
-          start strong and reduces early skips — an easy way to keep listeners engaged.
-        </p>
+    <section class="info">
+      <h2>Get your playlists in order</h2>
+      <p class="lead">
+        Spoti Sort is built for people who craft playlists.
+        Ordering by popularity is a simple way to start strong, reduce skips, and keep your playlist fresh over time.
+      </p>
 
-        <div class="ctaRow">
-          <button id="loginBtn" class="btn btn-spotify" type="button">
-            <svg class="spotifySvg" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.6 14.5a.8.8 0 0 1-1.1.27c-2.8-1.72-6.32-2.1-10.48-1.13a.8.8 0 0 1-.36-1.56c4.56-1.05 8.5-.62 11.8 1.39.38.23.5.72.27 1.03zm1.2-2.7a.95.95 0 0 1-1.3.3c-3.2-1.97-8.1-2.55-11.93-1.37a.95.95 0 1 1-.55-1.82c4.34-1.32 9.78-.67 13.56 1.65.45.27.6.86.22 1.24zm.12-2.83a1.1 1.1 0 0 1-1.5.36c-3.68-2.18-9.3-2.84-13.64-1.5a1.1 1.1 0 0 1-.65-2.1c4.9-1.5 11.03-.76 15.24 1.73.52.3.7.97.55 1.51z"/>
-            </svg>
-            Login with Spotify
-          </button>
-          <div class="subCta">
-            <div class="subTitle">Get your playlists in order</div>
-            <div class="subText">
-              With Spoti Sort you can quickly reorder the songs in any of your playlists to improve engagement.
-            </div>
-          </div>
-        </div>
+      <h3>Just follow <span class="caps">THESE STEPS</span>:</h3>
+      <ol class="steps">
+        <li>Login with your Spotify credentials</li>
+        <li>Pick your playlist</li>
+        <li>Sort by clicking the column headings (or use Intelligent / Random Sort)</li>
+        <li>Save the sorted playlist to Spotify (as a new playlist or overwriting the current one)</li>
+      </ol>
+    </section>
 
-        <div class="steps">
-          <div class="stepsTitle">Just follow THESE STEPS:</div>
-          <ol>
-            <li>Login with your Spotify credentials</li>
-            <li>Pick your playlist</li>
-            <li>Sort the playlist by clicking on the column headings in the playlist table</li>
-            <li>Save the sorted playlist to Spotify</li>
-          </ol>
-        </div>
-
-        <p id="status" class="status" role="status" aria-live="polite"></p>
-      </section>
-
-      <section id="app" class="app hidden">
-        <div class="panel">
-          <div class="panelRow">
-            <label class="label">
-              <span>Pick a playlist</span>
-              <select id="playlistSelect" class="select">
-                <option value="">(loading...)</option>
-              </select>
-            </label>
-
-            <button id="loadBtn" class="btn btn-primary" type="button">Load tracks</button>
-          </div>
-
-          <div class="panelRow panelRow2">
-            <div class="sortButtons">
-              <button id="intelligentBtn" class="btn btn-secondary" type="button">Intelligent Sort</button>
-              <button id="randomBtn" class="btn btn-secondary" type="button">Random Sort</button>
-            </div>
-
-            <div class="saveButtons">
-              <button id="saveBtn" class="btn btn-primary" type="button">Save as new playlist</button>
-              <button id="overwriteBtn" class="btn btn-ghost" type="button">Overwrite current playlist</button>
-            </div>
-          </div>
-
-          <div class="hint">
-            Tip: click the column headers to sort (Track, Artist, Popularity, Duration).
-          </div>
-        </div>
-
-        <div class="tableCard">
-          <div class="tableHeader">
-            <div id="tableMeta" class="tableMeta"></div>
-          </div>
-          <div class="tableWrap">
-            <table id="table" class="table">
-              <thead>
-                <tr>
-                  <th class="col-num">#</th>
-                  <th data-field="name" class="sortable">Track</th>
-                  <th data-field="artist" class="sortable">Artist</th>
-                  <th data-field="popularity" class="sortable">Popularity</th>
-                  <th data-field="duration_ms" class="sortable">Duration</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+    <main id="appSection" class="app hidden">
+      <section class="card">
+        <div class="cardHead">
+          <h2>Pick your playlist</h2>
+          <div class="row">
+            <select id="playlistSelect" aria-label="Select playlist">
+              <option value="">(loading…)</option>
+            </select>
+            <button id="loadBtn" class="primaryBtn" type="button">Load</button>
           </div>
         </div>
       </section>
 
-      <footer class="footer">
-        <span>Made for playlist curators.</span>
-      </footer>
+      <section class="card">
+        <div class="cardHead">
+          <h2>Sort &amp; Save</h2>
+          <p class="muted">Tip: click a column to sort. Click again to toggle Asc/Desc.</p>
+        </div>
+
+        <div class="stack">
+          <div class="row wrap">
+            <button id="intelligentBtn" class="secondaryBtn" type="button" disabled title="Popularity desc, duration asc">
+              Intelligent Sort
+            </button>
+            <button id="randomBtn" class="ghostBtn" type="button" disabled title="Shuffle tracks randomly">
+              Random Sort
+            </button>
+          </div>
+
+          <div class="row wrap">
+            <button id="saveBtn" class="primaryBtn" type="button" disabled>Save sorted playlist to Spotify</button>
+            <button id="overwriteBtn" class="secondaryBtn" type="button" disabled title="Replaces the order inside the selected playlist">Overwrite current playlist</button>
+            <button id="exportBtn" class="ghostBtn" type="button" disabled>Export CSV</button>
+          </div>
+        </div>
+
+        <p id="saveStatus" class="muted"></p>
+        <p id="featuresWarning" class="warning"></p>
+      </section>
+
+      <section class="card">
+        <div class="tableWrap">
+          <table id="table">
+            <thead>
+              <tr>
+                <th class="num" data-field="index">#</th>
+                <th data-field="name">Track</th>
+                <th data-field="artist">Artist</th>
+                <th class="num" data-field="popularity">Popularity</th>
+                <th class="num" data-field="duration_ms">Duration</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="stats" class="muted"></p>
+      </section>
     </main>
+
+    <footer class="footer">
+      <div class="footerLeft">
+        Developed by <a href="https://nieves.games/" target="_blank" rel="noreferrer">NIEVES.GAMES</a> (2026)
+      </div>
+
+      <div class="footerRight">
+        <div class="shareModule">
+          <div class="shareCopy">
+            <div class="shareTitle">Help other playlist curators boost engagement.</div>
+            <div class="shareSub">Share Spoti Sort with someone who builds playlists.</div>
+          </div>
+          <button id="shareBtn" class="secondaryBtn" type="button">SHARE</button>
+        </div>
+        <div id="shareMsg" class="shareMsg" aria-live="polite"></div>
+      </div>
+    </footer>
   </div>
 
+  <script type="module" src="./analytics.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

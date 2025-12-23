@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Spoti Sort — Callback</title>
-
+  <title>Spotify Callback</title>
+  
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -12,23 +12,18 @@
   'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
   })(window,document,'script','dataLayer','GTM-N7H26368');</script>
   <!-- End Google Tag Manager -->
-
-  <link rel="stylesheet" href="./styles.css" />
+<link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-N7H26368"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
-
-  <div class="page">
-    <main class="main">
-      <section class="hero">
-        <h1>Signing you in…</h1>
-        <p id="msg" class="lead">Completing Spotify authentication.</p>
-      </section>
-    </main>
-  </div>
+<main class="card">
+    <h1>Autenticando…</h1>
+    <p id="msg" class="muted"></p>
+  </main>
 
   <script type="module">
     import { handleCallback } from "./auth.js";
@@ -42,7 +37,7 @@
     handleCallback()
       .then(() => {
         track("auth_success");
-        msg.textContent = "Done. Returning to app…";
+        msg.textContent = "Done. Returning to the app…";
         const url = new URL(window.location.href);
         url.pathname = url.pathname.replace(/\/callback\.html$/, "/");
         url.search = "";
