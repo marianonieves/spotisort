@@ -72,3 +72,30 @@ export async function getAudioFeatures(trackIds) {
   }
   return featuresById;
 }
+
+export async function createPlaylist(userId, { name, description = "", isPublic = false }) {
+  return spotifyFetch(`/users/${encodeURIComponent(userId)}/playlists`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      description,
+      public: isPublic,
+    }),
+  });
+}
+
+export async function addItemsToPlaylist(playlistId, uris) {
+  // uris: array de spotify:track:...
+  return spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+    method: "POST",
+    body: JSON.stringify({ uris }),
+  });
+}
+
+export async function replacePlaylistItems(playlistId, uris) {
+  // reemplaza el contenido/orden (máx 100) :contentReference[oaicite:4]{index=4}
+  return spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+    method: "PUT",
+    body: JSON.stringify({ uris }),
+  });
+}
