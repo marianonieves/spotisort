@@ -1,7 +1,10 @@
 import { login, logout, getToken } from "./auth.js";
 import { getMe, getMyPlaylists, getPlaylistTracks, getAudioFeatures } from "./spotify.js";
+import { createPlaylist, addItemsToPlaylist, replacePlaylistItems } from "./spotify.js";
+
 
 const $ = (id) => document.getElementById(id);
+
 
 const loginBtn = $("loginBtn");
 const logoutBtn = $("logoutBtn");
@@ -11,6 +14,8 @@ const playlistSelect = $("playlistSelect");
 const loadBtn = $("loadBtn");
 const applyBtn = $("applyBtn");
 const exportBtn = $("exportBtn");
+const saveBtn = $("saveBtn");
+const overwriteBtn = $("overwriteBtn");
 const sortField = $("sortField");
 const sortDir = $("sortDir");
 const minVal = $("minVal");
@@ -219,3 +224,63 @@ init().catch(e => {
   console.error(e);
   setStatus("Error: " + (e?.message ?? String(e)));
 });
+
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function rowsToTrackUris(rows) {
+  return rows
+    .map(r => r?.track?.id)
+    .filter(Boolean)
+    .map(id => `spotify:track:${id}`);
+}
+
+saveBtn.onclick = async () => {
+  const pid = playlistSelect.value;
+  if (!pid) return;
+
+  setStatus("Creando nueva playlist…");
+
+  const me = await getMe();
+  const baseName = playlistSelect.selectedOptions?.[0]?.textContent?.replace(/\s*\(\d+\)\s*$/, "") ?? "Spotisort";
+  const sortedName = `${baseName} (sorted by ${sortField.value})`;
+
+  // Crear (por default privada) :contentReference[oaicite:5]{index=5}
+  const newPl = await createPlaylist(me.id, {
+    name: sortedName,
+    description: "Creada por Spotisort (GitHub Pages).",
+    isPublic: false,
+  });
+
+  const uris = rowsToTrackUris(displayedRows);
+  const batches = chunk(uris, 100); // máx 100 por request :contentReference[oaicite:6]{index=6}
+
+  for (const b of batches) {
+    await addItemsToPlaylist(newPl.id, b);
+  }
+
+  setStatus(`Listo ✅ Nueva playlist creada: ${sortedName}`);
+};
+
+overwriteBtn.onclick = async () => {
+  const pid = playlistSelect.value;
+  if (!pid) return;
+
+  const uris = rowsToTrackUris(displayedRows);
+  const batches = chunk(uris, 100);
+
+  setStatus("Sobrescribiendo playlist actual…");
+
+  // 1) Replace con los primeros 100 (overwrite + orden) :contentReference[oaicite:7]{index=7}
+  await replacePlaylistItems(pid, batches[0] ?? []);
+
+  // 2) Add el resto :contentReference[oaicite:8]{index=8}
+  for (const b of batches.slice(1)) {
+    await addItemsToPlaylist(pid, b);
+  }
+
+  setStatus("Listo ✅ Playlist actual reordenada en Spotify.");
+};
