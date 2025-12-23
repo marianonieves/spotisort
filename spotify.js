@@ -6,28 +6,90 @@ export async function spotifyFetch(path, opts = {}) {
   const t = await refreshIfNeeded();
   if (!t?.access_token) throw new Error("Not authenticated");
 
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {
-      ...(opts.headers ?? {}),
-      Authorization: `Bearer ${t.access_token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  const maxRetries = 5;
+  let attempt = 0;
+  let backoffMs = 750;
 
-  if (!res.ok) {
-    let msg = `${res.status} ${res.statusText}`;
+  while (true) {
+    let res;
     try {
-      const data = await res.json();
-      msg = data?.error?.message ?? msg;
-    } catch {}
-    const err = new Error(msg);
-    err.status = res.status;
-    throw err;
-  }
+      res = await fetch(`${API}${path}`, {
+        ...opts,
+        headers: {
+          ...(opts.headers ?? {}),
+          Authorization: `Bearer ${t.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (e) {
+      // Network error — retry with backoff a few times
+      if (attempt >= maxRetries) throw e;
+      const jitter = Math.floor(Math.random() * 250);
+      await new Promise((r) => setTimeout(r, backoffMs + jitter));
+      attempt++;
+      backoffMs = Math.min(backoffMs * 2, 15000);
+      continue;
+    }
 
-  return res.json();
+    // Rate limited — respect Retry-After if exposed; otherwise fall back to backoff
+    if (res.status === 429) {
+      if (attempt >= maxRetries) {
+        const err = new Error("Rate limited (429). Please try again in a moment.");
+        err.status = 429;
+        throw err;
+      }
+
+      const ra = res.headers?.get?.("Retry-After");
+      let waitMs = Number.isFinite(parseInt(ra, 10)) ? parseInt(ra, 10) * 1000 : backoffMs;
+
+      // Safety: sometimes Retry-After can be missing/0 or very large; clamp + jitter
+      waitMs = Math.max(1000, Math.min(waitMs, 30000));
+      const jitter = Math.floor(Math.random() * 400);
+      await new Promise((r) => setTimeout(r, waitMs + jitter));
+
+      attempt++;
+      backoffMs = Math.min(backoffMs * 2, 30000);
+      continue;
+    }
+
+    // Transient server errors — retry a few times
+    if ([500, 502, 503, 504].includes(res.status)) {
+      if (attempt >= maxRetries) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+          const data = await res.json();
+          msg = data?.error?.message ?? msg;
+        } catch {}
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+
+      const jitter = Math.floor(Math.random() * 400);
+      await new Promise((r) => setTimeout(r, backoffMs + jitter));
+      attempt++;
+      backoffMs = Math.min(backoffMs * 2, 15000);
+      continue;
+    }
+
+    if (!res.ok) {
+      let msg = `${res.status} ${res.statusText}`;
+      try {
+        const data = await res.json();
+        msg = data?.error?.message ?? msg;
+      } catch {}
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+
+    // Some endpoints may return 204 No Content
+    if (res.status === 204) return null;
+
+    return res.json();
+  }
 }
+
 
 export async function getMe() {
   return spotifyFetch("/me");

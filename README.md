@@ -40,37 +40,6 @@ En ambos casos vas a ver un link **Open it on Spotify** en el mensaje de confirm
 - **Intelligent Sort**: ordena por *popularity desc* y, ante empate, por *duration asc*.
 - **Random Sort**: mezcla (shuffle) el orden.
 
-SMART SORT V2
-Parámetros (defaults razonables)
-
-hookN = 5 → los primeros 5 bien “fáciles” (popular + cortos)
-
-cooldown = 2 → no repetir artista dentro de las últimas 2 canciones
-
-Buckets por score:
-
-A = top 20%, B = middle 60%, C = bottom 20%
-
-Patrón interleaving: A, A, B, A, B, C (repetido)
-
-Score base (igual a tu idea, pero normalizado):
-
-score = 0.75*(popularity/100) + 0.25*(1 - clamp(duration_ms/240000))
-
-POR QUÉ ESTE APPROACH SUELE MEJORAR ENGAGEMENT
-
-Hook-first: reduce la probabilidad de que el usuario abandone temprano (skips y cambios de canción pasan muy pronto y son muy frecuentes). 
-PMC
-+2
-Spotify Research
-+2
-
-No repetir artista: evita “fatiga” y mantiene sensación de variedad (práctica común en curación). 
-ZIPDJ | The World's Best DJ Pool
-+1
-
-Interleaving: evita que la playlist se vuelva “plana” (todo hits) o que se hunda con varios tracks flojos seguidos.
-
 ## 7) Google Analytics (GA4) (opcional)
 1. En Google Analytics: Admin → Create Property → Data Streams → Web.
 2. Copiá el **Measurement ID** (formato `G-XXXXXXXXXX`).
