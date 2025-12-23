@@ -45,7 +45,7 @@ let currentRows = []; // [{ track }]
 let visibleRows = []; // sorted rows
 
 const sortState = {
-  field: "popularity",
+  field: null,
   dir: "desc", // 'asc' | 'desc'
 };
 
@@ -102,6 +102,12 @@ function setActiveHeader() {
 }
 
 function applySort() {
+  if (!sortState.field) {
+    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+    renderTable(visibleRows);
+    setActiveHeader();
+    return;
+  }
   const { field, dir } = sortState;
   const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
 
@@ -149,8 +155,7 @@ function applyIntelligentSort() {
   });
 
   // Clear column highlight (this is a custom sort)
-  sortState.field = "__custom__";
-  sortState.dir = "desc";
+    sortState.dir = "desc";
   visibleRows = rows;
   renderTable(visibleRows);
   setActiveHeader();
@@ -170,8 +175,7 @@ function applyRandomSort() {
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
 
-  sortState.field = "__custom__";
-  sortState.dir = "desc";
+    sortState.dir = "desc";
   visibleRows = rows;
   renderTable(visibleRows);
   setActiveHeader();
@@ -322,7 +326,11 @@ async function init() {
       sortState.dir = sortState.dir === "desc" ? "asc" : "desc";
     }
 
-    applySort();
+    // Keep the user's original playlist order on load
+    sortState.field = null;
+    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+    renderTable(visibleRows);
+    setActiveHeader();
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
@@ -365,13 +373,9 @@ async function init() {
       dir: sortState.dir,
     });
 
-    // Keep the user's original playlist order on load
-    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
-    renderTable(visibleRows);
-    // Clear any active column arrow (no sort applied yet)
-    sortState.field = "__custom__";
-    setActiveHeader();
-  });
+
+    applySort();
+    });
 
   const token = getToken();
   if (!token?.access_token) {
