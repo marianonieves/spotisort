@@ -24,6 +24,7 @@ const appSection = $("appSection");
 const playlistSelect = $("playlistSelect");
 const loadBtn = $("loadBtn");
 const sortPlaylistBtn = $("sortPlaylistBtn");
+const resetBtn = $("resetBtn");
 
 const intelligentBtn = $("intelligentBtn");
 const randomBtn = $("randomBtn");
@@ -326,17 +327,23 @@ async function init() {
       sortState.dir = sortState.dir === "desc" ? "asc" : "desc";
     }
 
-    // Keep the user's original playlist order on load
-    sortState.field = null;
-    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
-    renderTable(visibleRows);
-    setActiveHeader();
+    applySort();
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
 
   intelligentBtn.onclick = () => applyIntelligentSort();
   randomBtn.onclick = () => applyRandomSort();
+
+  resetBtn.onclick = () => {
+    // Restore original playlist order (as returned by Spotify)
+    trackEvent("reset_order");
+    sortState.field = null;
+    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+    renderTable(visibleRows);
+    setActiveHeader();
+    setStatus("Reset to the original playlist order.");
+  };
 
   exportBtn.onclick = () => {
     trackEvent("export_csv", { playlist_id: currentPlaylist?.id ?? "", tracks: visibleRows.length });
@@ -438,6 +445,7 @@ async function init() {
     intelligentBtn.disabled = false;
     randomBtn.disabled = false;
     sortPlaylistBtn.disabled = false;
+    resetBtn.disabled = false;
 
     trackEvent("playlist_loaded", {
       playlist_id: pid,
