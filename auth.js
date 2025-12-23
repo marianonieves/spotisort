@@ -105,6 +105,7 @@ export async function handleCallback() {
     expires_at: expiresAt,
   });
 
+  // Clean URL
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 

@@ -57,57 +57,27 @@ export async function getPlaylistTracks(playlistId) {
   return tracks;
 }
 
-export async function createPlaylist(userId, name, { description = "Sorted with Spoti Sort", isPublic = false } = {}) {
+export async function createPlaylist(userId, { name, description = "", isPublic = false }) {
   return spotifyFetch(`/users/${encodeURIComponent(userId)}/playlists`, {
     method: "POST",
     body: JSON.stringify({
       name,
       description,
-      public: Boolean(isPublic),
+      public: isPublic,
     }),
   });
 }
 
-// Add tracks to a playlist (max 100 URIs per request)
-export async function addPlaylistItems(playlistId, trackUris) {
-  const chunks = [];
-  for (let i = 0; i < trackUris.length; i += 100) chunks.push(trackUris.slice(i, i + 100));
-
-  for (const chunk of chunks) {
-    await spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
-      method: "POST",
-      body: JSON.stringify({ uris: chunk }),
-    });
-  }
-}
-
-// Overwrite a playlist's items with new order (Spotify replaces first 100, then you append the rest)
-export async function overwritePlaylistItems(playlistId, trackUris) {
-  const first = trackUris.slice(0, 100);
-  const rest = trackUris.slice(100);
-
-  await spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
-    method: "PUT",
-    body: JSON.stringify({ uris: first }),
+export async function addItemsToPlaylist(playlistId, uris) {
+  return spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+    method: "POST",
+    body: JSON.stringify({ uris }),
   });
-
-  if (rest.length) {
-    await addPlaylistItems(playlistId, rest);
-  }
 }
 
-// Audio Features (máx 100 ids por request)
-export async function getAudioFeatures(trackIds) {
-  const chunks = [];
-  for (let i = 0; i < trackIds.length; i += 100) chunks.push(trackIds.slice(i, i + 100));
-
-  const featuresById = new Map();
-  for (const chunk of chunks) {
-    const qs = new URLSearchParams({ ids: chunk.join(",") }).toString();
-    const data = await spotifyFetch(`/audio-features?${qs}`);
-    for (const f of (data.audio_features ?? [])) {
-      if (f?.id) featuresById.set(f.id, f);
-    }
-  }
-  return featuresById;
+export async function replacePlaylistItems(playlistId, uris) {
+  return spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+    method: "PUT",
+    body: JSON.stringify({ uris }),
+  });
 }

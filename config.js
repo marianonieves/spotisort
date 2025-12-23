@@ -1,14 +1,13 @@
-// 1) Creá una app en https://developer.spotify.com/dashboard
-// 2) Copiá tu Client ID acá (NO es secreto, es seguro para frontend)
-// 3) Agregá Redirect URIs (exact match):
-//    - https://TUUSUARIO.github.io/TUREPO/callback.html
-//    - http://127.0.0.1:5173/callback.html (o el puerto que uses)
+// Spoti Sort config
+// Client ID (safe to expose on frontend).
+// Make sure your Spotify app has this Redirect URI (exact match):
+//   https://marianonieves.github.io/spotisort/callback.html
 export const SPOTIFY_CLIENT_ID = "138161381bb34742b05c25c5a82fdc59";
 
+// OAuth scopes needed for reading + saving playlists
 export const SCOPES = [
   "playlist-read-private",
   "playlist-read-collaborative",
-  // Needed to save a new sorted playlist (or overwrite an existing one)
   "playlist-modify-public",
   "playlist-modify-private",
 ].join(" ");

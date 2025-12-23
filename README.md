@@ -1,30 +1,25 @@
-# Spotify Playlist Sorter (Static, GitHub Pages)
+# Spoti Sort (Static GitHub Pages)
 
-Una mini-app estática (HTML + JavaScript) que:
-- Autentica con Spotify usando Authorization Code + PKCE
-- Lista tus playlists
-- Carga tracks de una playlist
-- (Si tu app tiene acceso) busca Audio Features para ordenar/filtrar por BPM/energy/loudness, etc.
-- Exporta CSV
+A simple, static web app (HTML + JS) that lets playlist curators:
+- Login with Spotify (PKCE)
+- Load a playlist
+- Sort tracks by clicking table headers (Track, Artist, Popularity, Duration)
+- Intelligent Sort (popularity ↓ then duration ↑)
+- Random Sort
+- Save the sorted order back to Spotify (new playlist or overwrite)
 
-> Nota: Spotify restringió Audio Features para apps nuevas (puede devolver 403). En ese caso, podés ordenar por metadata estándar.
+## Spotify configuration
+Client ID is set in `config.js`.
 
-## 1) Configuración en Spotify Dashboard
-1. Crear una app en: https://developer.spotify.com/dashboard
-2. Copiar el **Client ID** en `config.js`
-3. Agregar Redirect URIs (exact match):
-   - Producción: `https://TUUSUARIO.github.io/TUREPO/callback.html`
-   - Local (recomendado): `http://127.0.0.1:5173/callback.html`
+Add this Redirect URI (exact match) in your Spotify app settings:
+- https://marianonieves.github.io/spotisort/callback.html
 
-## 2) Deploy en GitHub Pages
-- Settings → Pages → Deploy from a branch → Branch: `main` / folder: `/root`
-- Entrar a: `https://TUUSUARIO.github.io/TUREPO/`
+## Google Tag Manager
+This build includes GTM snippets in both `index.html` and `callback.html` with container:
+- GTM-N7H26368
 
-## 3) Dev local
-Usá un server local (el redirect debe usar 127.0.0.1):
-- Vite: `npm run dev -- --host 127.0.0.1 --port 5173`
-- Python: `python3 -m http.server 8080 --bind 127.0.0.1` (y registrás `http://127.0.0.1:8080/callback.html`)
+You can create GA4 tags inside GTM to measure pageviews/events.
 
-## 4) Troubleshooting
-- Si falla el login: revisá que el Redirect URI matchee exacto y sea HTTPS en GitHub Pages.
-- Si ves el warning de 403: tu app no tiene acceso a Audio Features.
+## Deploy
+Push these files to the repo root and enable GitHub Pages:
+Settings → Pages → Deploy from a branch → main → /(root)
