@@ -1,107 +1,112 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Spotify Playlist Sorter</title>
+  <title>Spoti Sort</title>
+
   <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Favicons (optional, but recommended) -->
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="./favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="./favicon-16x16.png" sizes="16x16">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
+  <link rel="manifest" href="./site.webmanifest">
+  <meta name="theme-color" content="#1ED760">
 </head>
+
 <body>
-  <header>
-    <h1>Spotify Playlist Sorter</h1>
-    <div class="row">
-      <button id="loginBtn">Login con Spotify</button>
-      <button id="logoutBtn" class="secondary">Logout</button>
-      <span id="me"></span>
-    </div>
-    <p id="status" class="muted"></p>
-  </header>
-
-  <main>
-    <section class="card">
-      <h2>1) Elegí playlist</h2>
-      <div class="row">
-        <select id="playlistSelect">
-          <option value="">(cargando...)</option>
-        </select>
-        <button id="loadBtn">Cargar tracks</button>
+  <div class="page">
+    <header class="hero">
+      <div class="brand">
+        <div class="brandMark" aria-hidden="true"></div>
+        <div class="brandText">SPOTI SORT</div>
       </div>
-      <p class="muted">Trae tracks y (si tu app tiene permiso) audio-features para ordenar por BPM/energy/loudness.</p>
+
+      <h1>Sort Your <span class="accent">PLAYLISTs</span></h1>
+      <p class="subtitle">Sort your Spotify playlists by popularity to easily curate</p>
+
+      <div class="ctaRow">
+        <button id="loginBtn" class="spotifyBtn" type="button">
+          <svg class="spotifyIcon" viewBox="0 0 168 168" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M84 0C37.7 0 0 37.7 0 84s37.7 84 84 84 84-37.7 84-84S130.3 0 84 0zm38.3 121.2c-1.6 2.6-5 3.4-7.6 1.8-20.8-12.7-47-15.6-77.7-8.6-3 .7-6.1-1.1-6.8-4.1-.7-3 1.1-6.1 4.1-6.8 33.8-7.4 63.1-4.1 86.5 10.1 2.6 1.6 3.4 5 1.5 7.6zM133 99.4c-2 3.2-6.1 4.2-9.3 2.2-23.8-14.6-60.1-18.8-88.2-10.3-3.6 1.1-7.4-.9-8.5-4.5-1.1-3.6.9-7.4 4.5-8.5 32.1-9.7 72-5 99.6 11.9 3.1 2 4.1 6.1 1.9 9.2zM134 76.1c-28.5-16.9-75.5-18.4-102.7-10.1-4.3 1.3-8.8-1.1-10.1-5.4-1.3-4.3 1.1-8.8 5.4-10.1 31.2-9.5 83.1-7.7 115.9 11.8 3.8 2.3 5.1 7.2 2.8 11-2.2 3.8-7.2 5.1-10.1 2.8z"/>
+          </svg>
+          Login with Spotify
+        </button>
+
+        <button id="logoutBtn" class="ghostBtn hidden" type="button">Logout</button>
+        <span id="me" class="me hidden"></span>
+      </div>
+
+      <p id="status" class="status"></p>
+    </header>
+
+    <section class="info">
+      <h2>Get your playlists in order</h2>
+      <p class="lead">
+        With Spoti Sort you can easily order the songs in any of your playlists to have a better engagement.
+      </p>
+
+      <h3>Just follow <span class="caps">THESE STEPS</span>:</h3>
+      <ol class="steps">
+        <li>Login with your Spotify credentials</li>
+        <li>Pick your playlist</li>
+        <li>Sort the playlist by clicking on the column headings in the playlist table</li>
+        <li>Save the sorted playlist to Spotify</li>
+      </ol>
     </section>
 
-    <section class="card">
-      <h2>2) Ordenar / filtrar</h2>
-      <div class="grid">
-        <label>
-          Campo
-          <select id="sortField">
-            <optgroup label="Audio features (si disponibles)">
-              <option value="tempo">BPM (tempo)</option>
-              <option value="energy">Energy</option>
-              <option value="loudness">Loudness</option>
-              <option value="danceability">Danceability</option>
-              <option value="valence">Valence</option>
-              <option value="acousticness">Acousticness</option>
-              <option value="instrumentalness">Instrumentalness</option>
-            </optgroup>
-            <optgroup label="Metadata estándar (siempre disponible)">
-              <option value="popularity">Popularity</option>
-              <option value="duration_ms">Duration</option>
-              <option value="name">Track name</option>
-            </optgroup>
-          </select>
-        </label>
+    <main id="appSection" class="app hidden">
+      <section class="card">
+        <div class="cardHead">
+          <h2>Pick your playlist</h2>
+          <div class="row">
+            <select id="playlistSelect" aria-label="Select playlist">
+              <option value="">(loading…)</option>
+            </select>
+            <button id="loadBtn" class="primaryBtn" type="button">Load</button>
+          </div>
+        </div>
+      </section>
 
-        <label>
-          Dirección
-          <select id="sortDir">
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-          </select>
-        </label>
+      <section class="card">
+        <div class="cardHead">
+          <h2>Sort &amp; Save</h2>
+          <p class="muted">Tip: click a column to sort. Click again to toggle Asc/Desc.</p>
+        </div>
+        <div class="row wrap">
+          <button id="saveBtn" class="primaryBtn" type="button" disabled>Save sorted playlist to Spotify</button>
+          <button id="overwriteBtn" class="secondaryBtn" type="button" disabled title="Replaces the order inside the selected playlist">Overwrite current playlist</button>
+          <button id="exportBtn" class="ghostBtn" type="button" disabled>Export CSV</button>
+        </div>
+        <p id="saveStatus" class="muted"></p>
+        <p id="featuresWarning" class="warning"></p>
+      </section>
 
-        <label>
-          Filtro mínimo (numérico)
-          <input id="minVal" type="number" placeholder="(opcional)" />
-        </label>
+      <section class="card">
+        <div class="tableWrap">
+          <table id="table">
+            <thead>
+              <tr>
+                <th class="num" data-field="index">#</th>
+                <th data-field="name">Track</th>
+                <th data-field="artist">Artist</th>
+                <th class="num" data-field="popularity">Popularity</th>
+                <th class="num" data-field="duration_ms">Duration</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="stats" class="muted"></p>
+      </section>
+    </main>
 
-        <label>
-          Filtro máximo (numérico)
-          <input id="maxVal" type="number" placeholder="(opcional)" />
-        </label>
-      </div>
-
-      <div class="row">
-        <button id="applyBtn">Aplicar</button>
-        <button id="exportBtn" class="secondary">Export CSV</button>
-        <button id="saveBtn">Guardar en Spotify (nueva playlist)</button>
-        <button id="overwriteBtn" class="secondary">Sobrescribir playlist actual</button>        
-      </div>
-      <p id="featuresWarning" class="warning"></p>
-    </section>
-
-    <section class="card">
-      <h2>Resultados</h2>
-      <p class="muted" id="stats"></p>
-      <div class="tableWrap">
-        <table id="table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Track</th>
-              <th>Artist</th>
-              <th>BPM</th>
-              <th>Energy</th>
-              <th>Loudness</th>
-              <th>Popularity</th>
-              <th>Duration</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+    <footer class="footer">
+      <span class="muted">Built for GitHub Pages · Uses Spotify Web API (PKCE)</span>
+    </footer>
+  </div>
 
   <script type="module" src="./app.js"></script>
 </body>

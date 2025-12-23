@@ -3,8 +3,15 @@
 // 3) Agregá Redirect URIs (exact match):
 //    - https://TUUSUARIO.github.io/TUREPO/callback.html
 //    - http://127.0.0.1:5173/callback.html (o el puerto que uses)
-export const SPOTIFY_CLIENT_ID = "138161381bb34742b05c25c5a82fdc59";
+export const SPOTIFY_CLIENT_ID = "PONÉ_ACÁ_TU_CLIENT_ID";
 
+export const SCOPES = [
+  "playlist-read-private",
+  "playlist-read-collaborative",
+  // Needed to save a new sorted playlist (or overwrite an existing one)
+  "playlist-modify-public",
+  "playlist-modify-private",
+].join(" ");
 
 export function getRedirectUri() {
   const url = new URL(window.location.href);
@@ -13,12 +20,3 @@ export function getRedirectUri() {
   url.hash = "";
   return url.toString();
 }
-
-export const SCOPES = [
-  "playlist-read-private",
-  "playlist-read-collaborative",
-  "playlist-modify-public",
-  "playlist-modify-private",
-  "playlist-read-private",
-  "playlist-read-collaborative",  
-].join(" ");

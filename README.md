@@ -1,7 +1,5 @@
 # Spotify Playlist Sorter (Static, GitHub Pages)
 
-Spoti Dashboard: https://developer.spotify.com/dashboard/138161381bb34742b05c25c5a82fdc59
-
 Una mini-app estática (HTML + JavaScript) que:
 - Autentica con Spotify usando Authorization Code + PKCE
 - Lista tus playlists

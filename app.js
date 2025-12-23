@@ -1,32 +1,49 @@
 import { login, logout, getToken } from "./auth.js";
-import { getMe, getMyPlaylists, getPlaylistTracks, getAudioFeatures } from "./spotify.js";
-import { createPlaylist, addItemsToPlaylist, replacePlaylistItems } from "./spotify.js";
-
+import {
+  getMe,
+  getMyPlaylists,
+  getPlaylistTracks,
+  createPlaylist,
+  addPlaylistItems,
+  overwritePlaylistItems,
+  // getAudioFeatures,
+} from "./spotify.js";
 
 const $ = (id) => document.getElementById(id);
-
 
 const loginBtn = $("loginBtn");
 const logoutBtn = $("logoutBtn");
 const meEl = $("me");
 const statusEl = $("status");
+const appSection = $("appSection");
 const playlistSelect = $("playlistSelect");
 const loadBtn = $("loadBtn");
-const applyBtn = $("applyBtn");
 const exportBtn = $("exportBtn");
 const saveBtn = $("saveBtn");
 const overwriteBtn = $("overwriteBtn");
-const sortField = $("sortField");
-const sortDir = $("sortDir");
-const minVal = $("minVal");
-const maxVal = $("maxVal");
+const saveStatus = $("saveStatus");
+const featuresWarning = $("featuresWarning");
 const tbody = $("table").querySelector("tbody");
 const stats = $("stats");
-const featuresWarning = $("featuresWarning");
+const thead = $("table").querySelector("thead");
 
-let currentRows = []; // [{ track, features }]
+let me = null;
+let currentPlaylist = null; // {id,name}
+let currentRows = []; // [{ track }]
+let visibleRows = []; // sorted rows
 
-function setStatus(msg) { statusEl.textContent = msg ?? ""; }
+const sortState = {
+  field: "popularity",
+  dir: "desc", // 'asc' | 'desc'
+};
+
+function setStatus(msg) {
+  statusEl.textContent = msg ?? "";
+}
+
+function setSaveStatus(msg) {
+  saveStatus.textContent = msg ?? "";
+}
 
 function fmtMs(ms) {
   const s = Math.round((ms ?? 0) / 1000);
@@ -35,252 +52,229 @@ function fmtMs(ms) {
   return `${m}:${r}`;
 }
 
-function numOrNull(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 function getFieldValue(row, field) {
   const t = row.track;
-  const f = row.features;
+  if (field === "index") return row.__index ?? 0;
   if (field === "name") return t?.name ?? "";
+  if (field === "artist") return (t?.artists ?? [])[0]?.name ?? "";
   if (field === "popularity") return t?.popularity ?? null;
   if (field === "duration_ms") return t?.duration_ms ?? null;
-  return f ? (f[field] ?? null) : null;
+  return null;
 }
 
-let displayedRows = [];
-
-function renderTable(rows) {
-  displayedRows = rows;
-  tbody.innerHTML = "";
-  rows.forEach((row, idx) => {
-    const t = row.track;
-    const f = row.features;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${idx + 1}</td>
-      <td><a href="${t.external_urls?.spotify ?? "#"}" target="_blank" rel="noreferrer">${t.name ?? ""}</a></td>
-      <td>${(t.artists ?? []).map(a => a.name).join(", ")}</td>
-      <td>${f?.tempo != null ? f.tempo.toFixed(1) : "—"}</td>
-      <td>${f?.energy != null ? f.energy.toFixed(3) : "—"}</td>
-      <td>${f?.loudness != null ? f.loudness.toFixed(1) : "—"}</td>
-      <td>${t.popularity ?? "—"}</td>
-      <td>${t.duration_ms != null ? fmtMs(t.duration_ms) : "—"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  stats.textContent = `Tracks: ${rows.length}`;
-}
-
-function applySortAndFilter() {
-  const field = sortField.value;
-  const dir = sortDir.value;
-  const minN = minVal.value === "" ? null : numOrNull(minVal.value);
-  const maxN = maxVal.value === "" ? null : numOrNull(maxVal.value);
-
-  let rows = [...currentRows];
-
-  if (minN != null || maxN != null) {
-    rows = rows.filter(r => {
-      const v = getFieldValue(r, field);
-      if (v == null || typeof v !== "number") return false;
-      if (minN != null && v < minN) return false;
-      if (maxN != null && v > maxN) return false;
-      return true;
-    });
+function setActiveHeader() {
+  const ths = Array.from(thead.querySelectorAll("th[data-field]"));
+  for (const th of ths) {
+    const f = th.dataset.field;
+    if (f === sortState.field) {
+      th.classList.add("active");
+      th.setAttribute("data-dir", sortState.dir === "asc" ? "▲" : "▼");
+    } else {
+      th.classList.remove("active");
+      th.removeAttribute("data-dir");
+    }
   }
+}
+
+function applySort() {
+  const { field, dir } = sortState;
+  const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
 
   rows.sort((a, b) => {
     const va = getFieldValue(a, field);
     const vb = getFieldValue(b, field);
 
+    // Strings
     if (typeof va === "string" || typeof vb === "string") {
       const sa = String(va ?? "");
       const sb = String(vb ?? "");
       return dir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
     }
 
-    const na = (typeof va === "number") ? va : Infinity;
-    const nb = (typeof vb === "number") ? vb : Infinity;
+    // Numbers
+    const na = typeof va === "number" ? va : -Infinity;
+    const nb = typeof vb === "number" ? vb : -Infinity;
     return dir === "asc" ? (na - nb) : (nb - na);
   });
 
-  renderTable(rows);
+  visibleRows = rows;
+  renderTable(visibleRows);
+  setActiveHeader();
+}
+
+function renderTable(rows) {
+  tbody.innerHTML = "";
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const t = row.track;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="num">${i + 1}</td>
+      <td><a href="${t.external_urls?.spotify ?? "#"}" target="_blank" rel="noreferrer">${t.name ?? ""}</a></td>
+      <td>${(t.artists ?? []).map(a => a.name).join(", ")}</td>
+      <td class="num">${t.popularity ?? "—"}</td>
+      <td class="num">${t.duration_ms != null ? fmtMs(t.duration_ms) : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  stats.textContent = rows.length ? `Tracks: ${rows.length}` : "";
 }
 
 function exportCsv() {
-  const fieldList = [
-    "name", "artists", "tempo", "energy", "loudness", "danceability", "valence",
-    "popularity", "duration_ms", "url"
-  ];
-
+  const fieldList = ["name", "artists", "popularity", "duration_ms", "url"]; 
   const lines = [];
   lines.push(fieldList.join(","));
 
-  for (const r of currentRows) {
+  for (const r of visibleRows) {
     const t = r.track;
-    const f = r.features ?? {};
     const row = {
       name: (t.name ?? "").replaceAll('"', '""'),
       artists: (t.artists ?? []).map(a => a.name).join(" / ").replaceAll('"', '""'),
-      tempo: f.tempo ?? "",
-      energy: f.energy ?? "",
-      loudness: f.loudness ?? "",
-      danceability: f.danceability ?? "",
-      valence: f.valence ?? "",
       popularity: t.popularity ?? "",
       duration_ms: t.duration_ms ?? "",
       url: t.external_urls?.spotify ?? "",
     };
-
     lines.push(fieldList.map(k => `"${String(row[k] ?? "")}"`).join(","));
   }
 
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "playlist_sorted.csv";
+  a.download = "spotisort.csv";
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function getSortedTrackUris() {
+  return visibleRows
+    .map(r => r.track)
+    .filter(t => t?.id)
+    .map(t => `spotify:track:${t.id}`);
+}
+
+async function saveAsNewPlaylist() {
+  if (!me?.id) throw new Error("Missing user id");
+  if (!currentPlaylist?.name) throw new Error("Pick a playlist first");
+
+  const uris = getSortedTrackUris();
+  if (!uris.length) throw new Error("No tracks loaded");
+
+  const suffix = `${sortState.field} ${sortState.dir}`;
+  const name = `${currentPlaylist.name} (SpotiSort · ${suffix})`;
+
+  setSaveStatus("Creating a new playlist…");
+  const created = await createPlaylist(me.id, name, {
+    description: "Sorted with Spoti Sort",
+    isPublic: false,
+  });
+
+  setSaveStatus("Adding tracks…");
+  await addPlaylistItems(created.id, uris);
+
+  setSaveStatus("Done ✅ New playlist created.");
+}
+
+async function overwriteCurrentPlaylist() {
+  if (!currentPlaylist?.id) throw new Error("Pick a playlist first");
+
+  const uris = getSortedTrackUris();
+  if (!uris.length) throw new Error("No tracks loaded");
+
+  // Safety confirmation without a modal (keeps it static + simple)
+  const ok = window.confirm(
+    `Overwrite "${currentPlaylist.name}" on Spotify?\n\nThis will replace the track order in the selected playlist.`
+  );
+  if (!ok) return;
+
+  setSaveStatus("Overwriting playlist order…");
+  await overwritePlaylistItems(currentPlaylist.id, uris);
+  setSaveStatus("Done ✅ Playlist updated.");
 }
 
 async function init() {
   loginBtn.onclick = () => login();
   logoutBtn.onclick = () => { logout(); window.location.reload(); };
-  applyBtn.onclick = () => applySortAndFilter();
   exportBtn.onclick = () => exportCsv();
+  saveBtn.onclick = () => saveAsNewPlaylist().catch(e => setSaveStatus(`Error: ${e?.message ?? String(e)}`));
+  overwriteBtn.onclick = () => overwriteCurrentPlaylist().catch(e => setSaveStatus(`Error: ${e?.message ?? String(e)}`));
+
+  // Click-to-sort
+  thead.addEventListener("click", (ev) => {
+    const th = ev.target.closest("th[data-field]");
+    if (!th) return;
+    const field = th.dataset.field;
+    if (!field || field === "index") return;
+
+    if (sortState.field === field) {
+      sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      sortState.field = field;
+      sortState.dir = "desc";
+    }
+    applySort();
+  });
 
   const token = getToken();
   if (!token?.access_token) {
-    setStatus("No autenticado. Click en “Login con Spotify”.");
-    playlistSelect.innerHTML = `<option value="">(login requerido)</option>`;
-    loadBtn.disabled = true;
-    applyBtn.disabled = true;
-    exportBtn.disabled = true;
-    logoutBtn.disabled = true;
+    setStatus("Not authenticated. Click “Login with Spotify”.");
+    appSection.classList.add("hidden");
+    logoutBtn.classList.add("hidden");
+    meEl.classList.add("hidden");
     return;
   }
 
-  setStatus("Autenticado. Cargando perfil y playlists…");
-  logoutBtn.disabled = false;
+  // Logged in
+  setStatus("Loading your profile and playlists…");
+  appSection.classList.remove("hidden");
+  logoutBtn.classList.remove("hidden");
+  meEl.classList.remove("hidden");
+  loginBtn.classList.add("hidden");
 
-  const me = await getMe();
-  meEl.textContent = `${me.display_name ?? me.id ?? ""}`;
+  me = await getMe();
+  meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
-  playlists.sort((a, b) =>
-    (a.name ?? "").localeCompare((b.name ?? ""), "es", { sensitivity: "base" })
-  );
-  playlistSelect.innerHTML = `<option value="">(seleccioná una)</option>` + playlists
-    .map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`)
-    .join("");
+  playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
+
+  playlistSelect.innerHTML = `<option value="">Select a playlist…</option>` +
+    playlists.map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
 
   loadBtn.disabled = false;
-  applyBtn.disabled = false;
-  exportBtn.disabled = false;
+  exportBtn.disabled = true;
+  saveBtn.disabled = true;
+  overwriteBtn.disabled = true;
 
   loadBtn.onclick = async () => {
     const pid = playlistSelect.value;
     if (!pid) return;
 
     featuresWarning.textContent = "";
-    setStatus("Cargando tracks…");
+    setSaveStatus("");
     tbody.innerHTML = "";
     stats.textContent = "";
 
+    const selectedName = playlistSelect.options[playlistSelect.selectedIndex]?.textContent ?? "";
+    currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
+
+    setStatus("Loading tracks…");
     const tracks = await getPlaylistTracks(pid);
-    setStatus(`Tracks cargados: ${tracks.length}. Intentando audio-features…`);
+    currentRows = tracks.map(t => ({ track: t }));
 
-    const rows = tracks.map(t => ({ track: t, features: null }));
+    // If you later get Audio Features access back, you can re-enable it here.
+    // try { ... } catch (e) { ... }
 
-    try {
-      const ids = tracks.map(t => t.id);
-      const byId = await getAudioFeatures(ids);
-      for (const r of rows) r.features = byId.get(r.track.id) ?? null;
-      setStatus("OK: audio-features cargados. Ya podés ordenar por BPM/energy/loudness.");
-    } catch (e) {
-      if (e?.status === 403) {
-        featuresWarning.textContent =
-          "⚠️ Tu app no tiene acceso a Audio Features (Spotify suele devolver 403 en apps nuevas). Podés ordenar por metadata estándar (popularity, duration, name).";
-        setStatus("Audio-features no disponibles (403). Fallback a metadata estándar.");
-      } else {
-        featuresWarning.textContent = "⚠️ Error intentando audio-features: " + (e?.message ?? String(e));
-        setStatus("Error al cargar audio-features.");
-      }
-    }
-
-    currentRows = rows;
-    renderTable(currentRows);
-    applySortAndFilter();
+    applySort();
+    setStatus("Ready.");
+    exportBtn.disabled = false;
+    saveBtn.disabled = false;
+    overwriteBtn.disabled = false;
   };
 
-  setStatus("Listo.");
+  setStatus("Ready.");
 }
 
-init().catch(e => {
+init().catch((e) => {
   console.error(e);
   setStatus("Error: " + (e?.message ?? String(e)));
 });
-
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-function rowsToTrackUris(rows) {
-  return rows
-    .map(r => r?.track?.id)
-    .filter(Boolean)
-    .map(id => `spotify:track:${id}`);
-}
-
-saveBtn.onclick = async () => {
-  const pid = playlistSelect.value;
-  if (!pid) return;
-
-  setStatus("Creando nueva playlist…");
-
-  const me = await getMe();
-  const baseName = playlistSelect.selectedOptions?.[0]?.textContent?.replace(/\s*\(\d+\)\s*$/, "") ?? "Spotisort";
-  const sortedName = `${baseName} (sorted by ${sortField.value})`;
-
-  // Crear (por default privada) :contentReference[oaicite:5]{index=5}
-  const newPl = await createPlaylist(me.id, {
-    name: sortedName,
-    description: "Creada por Spotisort (GitHub Pages).",
-    isPublic: false,
-  });
-
-  const uris = rowsToTrackUris(displayedRows);
-  const batches = chunk(uris, 100); // máx 100 por request :contentReference[oaicite:6]{index=6}
-
-  for (const b of batches) {
-    await addItemsToPlaylist(newPl.id, b);
-  }
-
-  setStatus(`Listo ✅ Nueva playlist creada: ${sortedName}`);
-};
-
-overwriteBtn.onclick = async () => {
-  const pid = playlistSelect.value;
-  if (!pid) return;
-
-  const uris = rowsToTrackUris(displayedRows);
-  const batches = chunk(uris, 100);
-
-  setStatus("Sobrescribiendo playlist actual…");
-
-  // 1) Replace con los primeros 100 (overwrite + orden) :contentReference[oaicite:7]{index=7}
-  await replacePlaylistItems(pid, batches[0] ?? []);
-
-  // 2) Add el resto :contentReference[oaicite:8]{index=8}
-  for (const b of batches.slice(1)) {
-    await addItemsToPlaylist(pid, b);
-  }
-
-  setStatus("Listo ✅ Playlist actual reordenada en Spotify.");
-};
