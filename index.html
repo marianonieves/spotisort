@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotify Playlist Sorter</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Spotify Playlist Sorter</h1>
+    <div class="row">
+      <button id="loginBtn">Login con Spotify</button>
+      <button id="logoutBtn" class="secondary">Logout</button>
+      <span id="me"></span>
+    </div>
+    <p id="status" class="muted"></p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1) Elegí playlist</h2>
+      <div class="row">
+        <select id="playlistSelect">
+          <option value="">(cargando...)</option>
+        </select>
+        <button id="loadBtn">Cargar tracks</button>
+      </div>
+      <p class="muted">Trae tracks y (si tu app tiene permiso) audio-features para ordenar por BPM/energy/loudness.</p>
+    </section>
+
+    <section class="card">
+      <h2>2) Ordenar / filtrar</h2>
+      <div class="grid">
+        <label>
+          Campo
+          <select id="sortField">
+            <optgroup label="Audio features (si disponibles)">
+              <option value="tempo">BPM (tempo)</option>
+              <option value="energy">Energy</option>
+              <option value="loudness">Loudness</option>
+              <option value="danceability">Danceability</option>
+              <option value="valence">Valence</option>
+              <option value="acousticness">Acousticness</option>
+              <option value="instrumentalness">Instrumentalness</option>
+            </optgroup>
+            <optgroup label="Metadata estándar (siempre disponible)">
+              <option value="popularity">Popularity</option>
+              <option value="duration_ms">Duration</option>
+              <option value="name">Track name</option>
+            </optgroup>
+          </select>
+        </label>
+
+        <label>
+          Dirección
+          <select id="sortDir">
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </select>
+        </label>
+
+        <label>
+          Filtro mínimo (numérico)
+          <input id="minVal" type="number" placeholder="(opcional)" />
+        </label>
+
+        <label>
+          Filtro máximo (numérico)
+          <input id="maxVal" type="number" placeholder="(opcional)" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="applyBtn">Aplicar</button>
+        <button id="exportBtn" class="secondary">Export CSV</button>
+      </div>
+      <p id="featuresWarning" class="warning"></p>
+    </section>
+
+    <section class="card">
+      <h2>Resultados</h2>
+      <p class="muted" id="stats"></p>
+      <div class="tableWrap">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Track</th>
+              <th>Artist</th>
+              <th>BPM</th>
+              <th>Energy</th>
+              <th>Loudness</th>
+              <th>Popularity</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

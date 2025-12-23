@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotify Callback</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Autenticando…</h1>
+    <p id="msg" class="muted"></p>
+  </main>
+
+  <script type="module">
+    import { handleCallback } from "./auth.js";
+    const msg = document.getElementById("msg");
+    handleCallback()
+      .then(() => {
+        msg.textContent = "OK. Volviendo al inicio…";
+        const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/\/callback\.html$/, "/");
+        url.search = "";
+        url.hash = "";
+        window.location.replace(url.toString());
+      })
+      .catch((e) => {
+        console.error(e);
+        msg.textContent = "Error: " + (e?.message ?? String(e));
+      });
+  </script>
+</body>
+</html>
