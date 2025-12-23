@@ -44,7 +44,10 @@ function getFieldValue(row, field) {
   return f ? (f[field] ?? null) : null;
 }
 
+let displayedRows = [];
+
 function renderTable(rows) {
+  displayedRows = rows;
   tbody.innerHTML = "";
   rows.forEach((row, idx) => {
     const t = row.track;
