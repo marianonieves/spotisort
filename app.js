@@ -134,38 +134,122 @@ function applySort() {
   setActiveHeader();
 }
 
+function clamp01(x) {
+  return Math.max(0, Math.min(1, x));
+}
+
+function primaryArtistKey(track) {
+  const a0 = track?.artists?.[0];
+  return a0?.id || a0?.name || "unknown";
+}
+
+function smartScore(track) {
+  const pop = (track?.popularity ?? 0) / 100; // 0..1
+  const durNorm = clamp01((track?.duration_ms ?? 0) / 240000); // 4min = 1
+  return 0.75 * pop + 0.25 * (1 - durNorm);
+}
+
+function splitBuckets(sortedRows) {
+  const n = sortedRows.length;
+  const aEnd = Math.ceil(n * 0.2);
+  const cStart = Math.floor(n * 0.8);
+  return {
+    A: sortedRows.slice(0, aEnd),
+    B: sortedRows.slice(aEnd, cStart),
+    C: sortedRows.slice(cStart),
+  };
+}
+
+function pickWithCooldown(bucket, recentArtistKeys) {
+  for (let i = 0; i < bucket.length; i++) {
+    const row = bucket[i];
+    if (!recentArtistKeys.includes(row.__artistKey)) {
+      bucket.splice(i, 1);
+      return row;
+    }
+  }
+  return null;
+}
+
+function smartSortV2(rows, { hookN = 5, cooldown = 2, pattern = ["A", "A", "B", "A", "B", "C"] } = {}) {
+  const base = rows.filter((r) => r?.track?.id);
+
+  const ranked = base
+    .map((row, idx) => ({
+      ...row,
+      __index: idx + 1, // original order index (for Reset)
+      __artistKey: primaryArtistKey(row.track),
+      __score: smartScore(row.track),
+    }))
+    .sort((a, b) => b.__score - a.__score);
+
+  const buckets = splitBuckets(ranked);
+
+  const out = [];
+  const recent = [];
+  const pushRecent = (key) => {
+    recent.push(key);
+    while (recent.length > cooldown) recent.shift();
+  };
+
+  const total = ranked.length;
+  let step = 0;
+
+  // Hook-first: prioritize A, fallback B, then C
+  for (let i = 0; i < Math.min(hookN, total); i++) {
+    let row =
+      pickWithCooldown(buckets.A, recent) ||
+      pickWithCooldown(buckets.B, recent) ||
+      pickWithCooldown(buckets.C, recent) ||
+      (buckets.A.shift() || buckets.B.shift() || buckets.C.shift());
+
+    if (!row) break;
+    out.push(row);
+    pushRecent(row.__artistKey);
+  }
+
+  // Interleaving for the rest
+  while (out.length < total) {
+    const tier = pattern[step % pattern.length];
+    step++;
+
+    let row =
+      pickWithCooldown(buckets[tier], recent) ||
+      pickWithCooldown(buckets.A, recent) ||
+      pickWithCooldown(buckets.B, recent) ||
+      pickWithCooldown(buckets.C, recent) ||
+      (buckets.A.shift() || buckets.B.shift() || buckets.C.shift());
+
+    if (!row) break;
+    out.push(row);
+    pushRecent(row.__artistKey);
+  }
+
+  return out;
+}
+
 function applyIntelligentSort() {
-  // Criteria:
-  // 1) Higher popularity first
-  // 2) If same popularity, shorter duration first
-  // 3) Tie-breaker: name A→Z
-  const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+  // Smart Sort v2: Hook-first + no-repeat-artist + interleaving
+  trackEvent("smart_sort_v2");
 
-  rows.sort((a, b) => {
-    const pa = a.track?.popularity ?? -Infinity;
-    const pb = b.track?.popularity ?? -Infinity;
-    if (pa !== pb) return pb - pa;
+  sortState.field = "__smart__"; // custom sort (clears header arrows)
+  sortState.dir = "desc";
 
-    const da = a.track?.duration_ms ?? Infinity;
-    const db = b.track?.duration_ms ?? Infinity;
-    if (da !== db) return da - db;
-
-    const na = String(a.track?.name ?? "");
-    const nb = String(b.track?.name ?? "");
-    return na.localeCompare(nb, undefined, { sensitivity: "base" });
+  const sorted = smartSortV2(currentRows, {
+    hookN: 5,
+    cooldown: 2,
+    pattern: ["A", "A", "B", "A", "B", "C"],
   });
 
-  // Clear column highlight (this is a custom sort)
-    sortState.dir = "desc";
-  visibleRows = rows;
+  visibleRows = sorted;
   renderTable(visibleRows);
   setActiveHeader();
 
-  trackEvent("intelligent_sort", {
-    playlist_id: currentPlaylist?.id ?? "",
-    tracks: visibleRows.length,
-  });
+  // Backward-compatible event name
+  trackEvent("intelligent_sort");
+  setStatus("Smart Sort applied. You can Save it to Spotify.");
 }
+
 
 function applyRandomSort() {
   const rows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
