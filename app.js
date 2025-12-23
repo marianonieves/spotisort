@@ -163,6 +163,9 @@ async function init() {
   meEl.textContent = `${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
+  playlists.sort((a, b) =>
+    (a.name ?? "").localeCompare((b.name ?? ""), "es", { sensitivity: "base" })
+  );
   playlistSelect.innerHTML = `<option value="">(seleccioná una)</option>` + playlists
     .map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`)
     .join("");
