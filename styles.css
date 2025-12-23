@@ -7,6 +7,8 @@
   --muted2: rgba(255, 255, 255, 0.55);
   --green: #1ED760;
   --green2: #1DB954;
+  --ochre: #E3B313;
+  --ochre2: #D49D00;
   --shadow: 0 18px 60px rgba(0,0,0,0.45);
 }
 
@@ -143,6 +145,30 @@ h1 {
   color: #0a0c0f;
   box-shadow: 0 14px 38px rgba(0,0,0,0.35);
   transition: transform 120ms ease, filter 120ms ease;
+}
+
+.sortBtn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: rgba(227, 179, 19, 0.92);
+  color: #0a0c0f;
+  box-shadow: 0 14px 38px rgba(0,0,0,0.35);
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.sortBtn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.sortBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .primaryBtn:hover { filter: brightness(1.02); transform: translateY(-1px); }

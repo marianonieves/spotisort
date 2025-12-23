@@ -57,7 +57,7 @@
       <p id="status" class="status"></p>
     </header>
 
-    <section class="info">
+    <section class="info" id="infoModule">
       <h2>Get your playlists in order</h2>
       <p class="lead">
         Spoti Sort is built for people who craft playlists.
@@ -68,7 +68,7 @@
       <ol class="steps">
         <li>Login with your Spotify credentials</li>
         <li>Pick your playlist</li>
-        <li>Sort by clicking the column headings (or use Intelligent / Random Sort)</li>
+        <li>Sort by clicking the column headings (or use Smart / Random Sort)</li>
         <li>Save the sorted playlist to Spotify (as a new playlist or overwriting the current one)</li>
       </ol>
     </section>
@@ -82,6 +82,7 @@
               <option value="">(loading…)</option>
             </select>
             <button id="loadBtn" class="primaryBtn" type="button">Load</button>
+            <button id="sortPlaylistBtn" class="sortBtn" type="button">Sort playlist</button>
           </div>
         </div>
       </section>
@@ -94,10 +95,10 @@
 
         <div class="stack">
           <div class="row wrap">
-            <button id="intelligentBtn" class="secondaryBtn" type="button" disabled title="Popularity desc, duration asc">
-              Intelligent Sort
+            <button id="intelligentBtn" class="sortBtn" type="button" disabled title="Popularity desc, duration asc">
+              Smart Sort
             </button>
-            <button id="randomBtn" class="ghostBtn" type="button" disabled title="Shuffle tracks randomly">
+            <button id="randomBtn" class="sortBtn" type="button" disabled title="Shuffle tracks randomly">
               Random Sort
             </button>
           </div>

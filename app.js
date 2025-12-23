@@ -23,6 +23,7 @@ const statusEl = $("status");
 const appSection = $("appSection");
 const playlistSelect = $("playlistSelect");
 const loadBtn = $("loadBtn");
+const sortPlaylistBtn = $("sortPlaylistBtn");
 
 const intelligentBtn = $("intelligentBtn");
 const randomBtn = $("randomBtn");
@@ -303,6 +304,21 @@ async function init() {
     window.location.reload();
   };
 
+  sortPlaylistBtn.onclick = async () => {
+    // Convenience: load (if needed) and apply Smart Sort
+    trackEvent("sort_playlist_click");
+    if (!playlistSelect.value) {
+      setStatus("Pick a playlist first.");
+      return;
+    }
+    if (!currentRows?.length || currentPlaylist?.id !== playlistSelect.value) {
+      await loadBtn.onclick();
+    }
+    applyIntelligentSort();
+    setStatus("Sorted. Now you can save it to Spotify.");
+  };
+
+
   intelligentBtn.onclick = () => applyIntelligentSort();
   randomBtn.onclick = () => applyRandomSort();
 
@@ -354,6 +370,10 @@ async function init() {
   }
 
   // Logged in
+  // Hide the info module so users don't need to scroll after login
+  const infoModule = document.getElementById("infoModule");
+  if (infoModule) infoModule.classList.add("hidden");
+
   setStatus("Loading your profile and playlists…");
   appSection.classList.remove("hidden");
   logoutBtn.classList.remove("hidden");
