@@ -305,8 +305,8 @@ async function init() {
   };
 
   sortPlaylistBtn.onclick = async () => {
-    // Convenience: load (if needed) and apply Smart Sort
-    trackEvent("sort_playlist_click");
+    // Convenience: load (if needed) and toggle Popularity sort (desc ⇄ asc)
+    trackEvent("sort_by_popularity_click");
     if (!playlistSelect.value) {
       setStatus("Pick a playlist first.");
       return;
@@ -314,8 +314,16 @@ async function init() {
     if (!currentRows?.length || currentPlaylist?.id !== playlistSelect.value) {
       await loadBtn.onclick();
     }
-    applyIntelligentSort();
-    setStatus("Sorted. Now you can save it to Spotify.");
+
+    if (sortState.field !== "popularity") {
+      sortState.field = "popularity";
+      sortState.dir = "desc";
+    } else {
+      sortState.dir = sortState.dir === "desc" ? "asc" : "desc";
+    }
+
+    applySort();
+    setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
 
@@ -357,7 +365,12 @@ async function init() {
       dir: sortState.dir,
     });
 
-    applySort();
+    // Keep the user's original playlist order on load
+    visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
+    renderTable(visibleRows);
+    // Clear any active column arrow (no sort applied yet)
+    sortState.field = "__custom__";
+    setActiveHeader();
   });
 
   const token = getToken();
@@ -420,6 +433,7 @@ async function init() {
     overwriteBtn.disabled = false;
     intelligentBtn.disabled = false;
     randomBtn.disabled = false;
+    sortPlaylistBtn.disabled = false;
 
     trackEvent("playlist_loaded", {
       playlist_id: pid,
