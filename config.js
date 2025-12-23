@@ -17,3 +17,10 @@ export function getRedirectUri() {
   url.hash = "";
   return url.toString();
 }
+
+export const SCOPES = [
+  "playlist-read-private",
+  "playlist-read-collaborative",
+  "playlist-modify-public",
+  "playlist-modify-private",
+].join(" ");
