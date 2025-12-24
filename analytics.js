@@ -14,21 +14,6 @@ export function initAnalytics() {
   // Avoid double-initialization
   if (ready || document.getElementById("ga4-gtag")) return;
 
-
-  // If gtag is already present (e.g., added manually in <head>), just mark ready.
-  const existingGtag = (typeof window.gtag === "function");
-  const existingScript = !!document.querySelector('script[src*="googletagmanager.com/gtag/js"]');
-  if (existingGtag || existingScript) {
-    ready = true;
-    // Flush anything queued before gtag became available
-    for (const ev of pending) {
-      try { window.gtag?.(...ev); } catch {}
-    }
-    pending = [];
-    return;
-  }
-
-
   // Inject gtag.js
   const s = document.createElement("script");
   s.async = true;

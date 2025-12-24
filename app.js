@@ -10,61 +10,11 @@ import {
 } from "./spotify.js";
 
 
-
-import { initAnalytics, trackEvent as gaTrackEvent } from "./analytics.js";
-// Analytics helper: pushes to GTM dataLayer (if present) and to GA4 (gtag) via analytics.js
-initAnalytics();
-
 function trackEvent(event, params = {}) {
-  // GTM-compatible dataLayer event
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event, ...params });
-
-  // GA4 event (safe no-op if not configured)
-  gaTrackEvent(event, params);
 }
 const $ = (id) => document.getElementById(id);
-
-
-
-// Session-level usage tracking (best effort; used for product analytics)
-const sessionStartMs = Date.now();
-let playlistsCount = 0;
-let lastPlaylistId = "";
-let lastTracksCount = 0;
-let hadSort = false;
-let hadSave = false;
-let lastSortType = "";
-let lastSortField = "";
-let lastSortDir = "";
-
-// Send a session summary when the user leaves (helps measure "sorted but not saved")
-window.addEventListener("pagehide", () => {
-  const durationMs = Math.max(0, Date.now() - sessionStartMs);
-
-  trackEvent("session_summary", {
-    duration_ms: durationMs,
-    playlists_count: playlistsCount,
-    playlist_id: lastPlaylistId,
-    tracks_count: lastTracksCount,
-    had_sort: hadSort ? 1 : 0,
-    had_save: hadSave ? 1 : 0,
-    last_sort_type: lastSortType,
-    last_sort_field: lastSortField,
-    last_sort_dir: lastSortDir,
-  });
-
-  if (hadSort && !hadSave) {
-    trackEvent("abandon_after_sort", {
-      playlists_count: playlistsCount,
-      playlist_id: lastPlaylistId,
-      tracks_count: lastTracksCount,
-      last_sort_type: lastSortType,
-      last_sort_field: lastSortField,
-      last_sort_dir: lastSortDir,
-    });
-  }
-});
 
 const loginBtn = $("loginBtn");
 const logoutBtn = $("logoutBtn");
@@ -282,13 +232,7 @@ function applyIntelligentSort() {
   // Smart Sort v2: Hook-first + no-repeat-artist + interleaving
   trackEvent("smart_sort_v2");
 
-  
-  hadSort = true;
-  lastSortType = "smart_sort_v2";
-  lastSortField = "__smart__";
-  lastSortDir = "desc";
-  trackEvent("sort_applied", { sort_type: "smart_sort_v2", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
-sortState.field = "__smart__"; // custom sort (clears header arrows)
+  sortState.field = "__smart__"; // custom sort (clears header arrows)
   sortState.dir = "desc";
 
   const sorted = smartSortV2(currentRows, {
@@ -320,12 +264,6 @@ function applyRandomSort() {
   visibleRows = rows;
   renderTable(visibleRows);
   setActiveHeader();
-
-  hadSort = true;
-  lastSortType = "random_sort";
-  lastSortField = "__random__";
-  lastSortDir = "desc";
-  trackEvent("sort_applied", { sort_type: "random_sort", playlist_id: currentPlaylist?.id ?? "", tracks_count: visibleRows.length });
 
   trackEvent("random_sort", {
     playlist_id: currentPlaylist?.id ?? "",
@@ -399,9 +337,7 @@ async function saveAsNewPlaylist() {
   const name = `${currentPlaylist.name} (SpotiSort · ${suffix})`;
 
   setSaveStatus("Creating a new playlist…");
-  hadSave = true;
-  trackEvent("save_click", { save_mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: uris.length });
-  trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length , tracks_count: uris.length });
+  trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length });
 
   const created = await createPlaylist(me.id, name, {
     description: "Sorted with Spoti Sort",
@@ -416,8 +352,7 @@ async function saveAsNewPlaylist() {
     `Done ✅ New playlist created. <a href="${url}" target="_blank" rel="noreferrer">Open it on Spotify</a>`,
     { html: true }
   );
-  trackEvent("save_success", { save_mode: "new", playlist_id: currentPlaylist?.id ?? "", new_playlist_id: created.id, tracks_count: uris.length });
-  trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length , tracks_count: uris.length });
+  trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
 }
 
 async function overwriteCurrentPlaylist() {
@@ -433,9 +368,7 @@ async function overwriteCurrentPlaylist() {
   if (!ok) return;
 
   setSaveStatus("Overwriting playlist order…");
-  hadSave = true;
-  trackEvent("save_click", { save_mode: "overwrite", playlist_id: currentPlaylist.id, tracks_count: uris.length });
-  trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length , tracks_count: uris.length });
+  trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length });
 
   await overwritePlaylistItems(currentPlaylist.id, uris);
 
@@ -445,8 +378,7 @@ async function overwriteCurrentPlaylist() {
     { html: true }
   );
 
-  trackEvent("save_success", { save_mode: "overwrite", playlist_id: currentPlaylist.id, tracks_count: uris.length });
-  trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length , tracks_count: uris.length });
+  trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
 }
 
 async function init() {
@@ -464,11 +396,7 @@ async function init() {
   sortPlaylistBtn.onclick = async () => {
     // Convenience: load (if needed) and toggle Popularity sort (desc ⇄ asc)
     trackEvent("sort_by_popularity_click");
-    
-    hadSort = true;
-    lastSortType = "popularity";
-    lastSortField = "popularity";
-if (!playlistSelect.value) {
+    if (!playlistSelect.value) {
       setStatus("Pick a playlist first.");
       return;
     }
@@ -482,8 +410,6 @@ if (!playlistSelect.value) {
     } else {
       sortState.dir = sortState.dir === "desc" ? "asc" : "desc";
     }
-    lastSortDir = sortState.dir;
-
 
     applySort();
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
@@ -496,13 +422,7 @@ if (!playlistSelect.value) {
   resetBtn.onclick = () => {
     // Restore original playlist order (as returned by Spotify)
     trackEvent("reset_order");
-    
-    hadSort = true;
-    lastSortType = "reset";
-    lastSortField = "__original__";
-    lastSortDir = "desc";
-    trackEvent("sort_applied", { sort_type: "reset", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
-sortState.field = null;
+    sortState.field = null;
     visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
     renderTable(visibleRows);
     setActiveHeader();
@@ -538,16 +458,14 @@ sortState.field = null;
       sortState.dir = "desc";
     }
 
-    hadSort = true;
+    trackEvent("sort_column", {
+      playlist_id: currentPlaylist?.id ?? "",
+      field,
+      dir: sortState.dir,
+    });
 
-    lastSortType = "column";
-    lastSortField = field;
-    lastSortDir = sortState.dir;
 
-    trackEvent("sort_column", { playlist_id: currentPlaylist?.id ?? "", field, dir: sortState.dir });
-    trackEvent("sort_applied", { sort_type: "column", sort_field: field, sort_dir: sortState.dir, playlist_id: currentPlaylist?.id ?? "", tracks_count: visibleRows?.length ?? 0 });
-
-applySort();
+    applySort();
     });
 
   const token = getToken();
@@ -574,28 +492,13 @@ applySort();
   meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
-  
-  playlistsCount = Array.isArray(playlists) ? playlists.length : 0;
-  trackEvent("playlists_loaded", { playlists_count: playlistsCount });
-playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
+  playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
 
   playlistSelect.innerHTML =
     `<option value="">Select a playlist…</option>` +
     playlists.map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
 
-  
-
-  playlistSelect.onchange = () => {
-    const pid = playlistSelect.value;
-    if (!pid) return;
-    lastPlaylistId = pid;
-    const opt = playlistSelect.options[playlistSelect.selectedIndex];
-    const label = opt?.textContent ?? "";
-    const m = label.match(/\((\d+)\)\s*$/);
-    const total = m ? parseInt(m[1], 10) : undefined;
-    trackEvent("playlist_selected", { playlist_id: pid, tracks_total: Number.isFinite(total) ? total : undefined });
-  };
-loadBtn.disabled = false;
+  loadBtn.disabled = false;
   exportBtn.disabled = true;
   saveBtn.disabled = true;
   overwriteBtn.disabled = true;
@@ -615,16 +518,10 @@ loadBtn.disabled = false;
     currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
 
     setStatus("Loading tracks…");
-    lastPlaylistId = pid;
-    trackEvent("tracks_load_start", { playlist_id: pid });
-
     const tracks = await getPlaylistTracks(pid);
     currentRows = tracks.map(t => ({ track: t }));
 
-    
-    lastTracksCount = currentRows.length;
-    trackEvent("tracks_loaded", { playlist_id: pid, tracks_count: lastTracksCount });
-applySort();
+    applySort();
     setStatus("Ready.");
     exportBtn.disabled = false;
     saveBtn.disabled = false;
@@ -634,7 +531,10 @@ applySort();
     sortPlaylistBtn.disabled = false;
     resetBtn.disabled = false;
 
-    trackEvent("playlist_loaded", { playlist_id: pid, tracks: currentRows.length, tracks_count: currentRows.length });
+    trackEvent("playlist_loaded", {
+      playlist_id: pid,
+      tracks: currentRows.length,
+    });
   };
 
   setStatus("Ready.");

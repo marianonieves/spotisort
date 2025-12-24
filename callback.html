@@ -26,19 +26,11 @@
   </main>
 
   <script type="module">
-
     import { handleCallback } from "./auth.js";
-    import { initAnalytics, trackEvent as gaTrackEvent } from "./analytics.js";
-
-    initAnalytics();
 
     function track(event, params = {}) {
-      // GTM-compatible dataLayer event
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ event, ...params });
-
-      // GA4 event (if configured)
-      gaTrackEvent(event, params);
     }
 
     const msg = document.getElementById("msg");
@@ -57,7 +49,6 @@
         console.error(e);
         msg.textContent = "Error: " + (e?.message ?? String(e));
       });
-
   </script>
 </body>
 </html>
