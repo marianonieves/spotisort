@@ -10,7 +10,7 @@ export const SCOPES = [
 ].join(" ");
 
 // Google Analytics 4 (optional). Example: "G-XXXXXXXXXX". Leave empty to disable.
-export const GA_MEASUREMENT_ID = "";
+export const GA_MEASUREMENT_ID = "G-7ML56F0E8Q";
 
 export function getRedirectUri() {
   const url = new URL(window.location.href);
