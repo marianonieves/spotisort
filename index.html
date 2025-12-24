@@ -20,9 +20,42 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="./site.webmanifest">
   <meta name="theme-color" content="#1ED760">
+<style>
+
+  /* Beta banner */
+  .beta-banner{
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    background: rgba(255, 211, 102, 0.22);
+    border-bottom: 1px solid rgba(255, 211, 102, 0.45);
+    color: #fff;
+    font-size: 14px;
+    backdrop-filter: blur(8px);
+  }
+  .beta-banner strong{
+    letter-spacing: 0.2px;
+  }
+  .beta-banner span{
+    opacity: 0.92;
+  }
+
+</style>
 </head>
 
 <body>
+
+  <!-- Under development / Beta notice -->
+  <div class="beta-banner" role="note" aria-label="Beta notice">
+    <strong>Under development.</strong>
+    <span>If you want to be part of the Beta Testing contact us to join the Internal Beta.</span>
+  </div>
+
   
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-N7H26368"
