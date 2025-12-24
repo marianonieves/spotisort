@@ -53,6 +53,50 @@ let visibleRows = []; // sorted rows
 
 let isLoadingTracks = false;
 
+// --- Analytics session helpers ---
+let sessionStartTs = Date.now();
+let hasSortedInSession = false;
+let hasSavedInSession = false;
+let lastSortMeta = { sort_type: "", sort_field: "", sort_dir: "" };
+let lastSaveMode = "";
+
+function markSorted(meta = {}) {
+  hasSortedInSession = true;
+  lastSortMeta = {
+    sort_type: meta.sort_type || lastSortMeta.sort_type || "",
+    sort_field: meta.sort_field || lastSortMeta.sort_field || "",
+    sort_dir: meta.sort_dir || lastSortMeta.sort_dir || "",
+  };
+}
+
+function markSaved(mode) {
+  hasSavedInSession = true;
+  if (mode) lastSaveMode = mode;
+}
+
+function trackAbandonIfNeeded() {
+  // Fire a lightweight event if user sorted but didn't save in this session
+  if (hasSortedInSession && !hasSavedInSession && currentPlaylist?.id) {
+    trackEvent("abandon_after_sort", {
+      playlist_id: currentPlaylist.id,
+      tracks_count: currentRows?.length ?? 0,
+      last_sort_type: lastSortMeta.sort_type || "",
+      last_sort_field: lastSortMeta.sort_field || "",
+      last_sort_dir: lastSortMeta.sort_dir || "",
+    });
+  }
+
+  // Optional: explicit session duration (GA4 also provides engagement time automatically)
+  const duration_ms = Date.now() - sessionStartTs;
+  trackEvent("session_end", {
+    duration_ms,
+    had_sort: hasSortedInSession ? 1 : 0,
+    had_save: hasSavedInSession ? 1 : 0,
+    last_sort_type: lastSortMeta.sort_type || "",
+    save_mode: lastSaveMode || "",
+  });
+}
+
 const sortState = {
   field: null,
   dir: "desc", // 'asc' | 'desc'
@@ -252,6 +296,7 @@ function applyIntelligentSort() {
   trackEvent("smart_sort_v2");
 
       trackEvent("sort_applied", { sort_type: "smart_sort_v2" });
+  markSorted({ sort_type: "smart_sort_v2" });
 sortState.field = "__smart__"; // custom sort (clears header arrows)
   sortState.dir = "desc";
 
@@ -291,6 +336,7 @@ function applyRandomSort() {
     tracks: visibleRows.length,
   });
     trackEvent("sort_applied", { sort_type: "random_sort" });
+  markSorted({ sort_type: "random_sort" });
 }
 
 function renderTable(rows) {
@@ -361,7 +407,9 @@ async function saveAsNewPlaylist() {
   setSaveStatus("Creating a new playlist…");
   trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length });
 
-      trackEvent("save_start", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+      lastSaveMode = "new";
+  trackEvent("save_click", { mode: "new", playlist_id: currentPlaylist?.id ?? "" });
+  trackEvent("save_start", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 const created = await createPlaylist(me.id, name, {
     description: "Sorted with Spoti Sort",
     isPublic: false,
@@ -377,6 +425,7 @@ const created = await createPlaylist(me.id, name, {
   );
   trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
     trackEvent("save_success", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+  markSaved("new");
 }
 
 async function overwriteCurrentPlaylist() {
@@ -389,12 +438,17 @@ async function overwriteCurrentPlaylist() {
   const ok = window.confirm(
     `Overwrite "${currentPlaylist.name}" on Spotify?\n\nThis will replace the track order in the selected playlist.`
   );
-  if (!ok) return;
+  if (!ok) {
+    trackEvent("overwrite_cancel", { playlist_id: currentPlaylist.id });
+    return;
+  }
 
   setSaveStatus("Overwriting playlist order…");
   trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length });
 
-      trackEvent("save_start", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+      lastSaveMode = "overwrite";
+  trackEvent("save_click", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "" });
+  trackEvent("save_start", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 await overwritePlaylistItems(currentPlaylist.id, uris);
 
   const url = `https://open.spotify.com/playlist/${currentPlaylist.id}`;
@@ -405,9 +459,17 @@ await overwritePlaylistItems(currentPlaylist.id, uris);
 
   trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
     trackEvent("save_success", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+  markSaved("overwrite");
 }
 
 async function init() {
+
+  // Track session end / abandon-after-sort (best effort) when leaving the page
+  window.addEventListener("pagehide", () => {
+    try {
+      trackAbandonIfNeeded();
+    } catch (_) {}
+  });
   loginBtn.onclick = () => {
     trackEvent("login_click");
     login();
@@ -439,6 +501,7 @@ async function init() {
 
     applySort();
     trackEvent("sort_applied", { sort_type: "popularity", sort_dir: sortState.dir });
+    markSorted({ sort_type: "popularity", sort_dir: sortState.dir });
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
@@ -450,6 +513,7 @@ async function init() {
     // Restore original playlist order (as returned by Spotify)
     trackEvent("reset_order");
         trackEvent("sort_applied", { sort_type: "reset" });
+    markSorted({ sort_type: "reset" });
 sortState.field = null;
     visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
     renderTable(visibleRows);
@@ -492,6 +556,7 @@ sortState.field = null;
       dir: sortState.dir,
     });
     trackEvent("sort_applied", { sort_type: "column", sort_field: field, sort_dir: sortState.dir });
+    markSorted({ sort_type: "column", sort_field: field, sort_dir: sortState.dir });
 
     applySort();
     });
