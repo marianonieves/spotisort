@@ -106,7 +106,7 @@ export async function getMyPlaylists() {
   return out;
 }
 
-export async function getPlaylistTracks(playlistId) {
+export async function getPlaylistTracks(playlistId, { onProgress } = {}) {
   const tracks = [];
   let url = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100&fields=items(track(id,name,artists(name),duration_ms,popularity,external_urls(spotify))),next,total`;
   while (url) {

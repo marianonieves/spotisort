@@ -45,13 +45,26 @@ let currentPlaylist = null; // {id,name}
 let currentRows = []; // [{ track }]
 let visibleRows = []; // sorted rows
 
+let isLoadingTracks = false;
+
 const sortState = {
   field: null,
   dir: "desc", // 'asc' | 'desc'
 };
 
 function setStatus(msg) {
-  statusEl.textContent = msg ?? "";
+  const text = (msg ?? "").toString();
+  statusEl.textContent = text;
+
+  const hasText = !!text.trim();
+  statusEl.classList.toggle("status--visible", hasText);
+
+  // Consider it "busy" when it looks like a long-running action (loading/saving/etc)
+  const busy =
+    /loading|saving|fetching|sorting|authorizing|updating/i.test(text) ||
+    /…|\.\.\./.test(text);
+  statusEl.classList.toggle("status--busy", hasText && busy);
+  statusEl.setAttribute("aria-busy", (hasText && busy) ? "true" : "false");
 }
 
 function getCleanUrl() {
@@ -509,6 +522,24 @@ async function init() {
     const pid = playlistSelect.value;
     if (!pid) return;
 
+    // Prevent duplicate clicks / concurrent loads
+    if (isLoadingTracks) return;
+    isLoadingTracks = true;
+
+    const prevLoadText = loadBtn.textContent;
+    loadBtn.textContent = "Loading…";
+
+    // Disable controls while loading to avoid repeated calls
+    loadBtn.disabled = true;
+    playlistSelect.disabled = true;
+    sortPlaylistBtn.disabled = true;
+    intelligentBtn.disabled = true;
+    randomBtn.disabled = true;
+    resetBtn.disabled = true;
+    exportBtn.disabled = true;
+    saveBtn.disabled = true;
+    overwriteBtn.disabled = true;
+
     featuresWarning.textContent = "";
     setSaveStatus("");
     tbody.innerHTML = "";
@@ -517,28 +548,71 @@ async function init() {
     const selectedName = playlistSelect.options[playlistSelect.selectedIndex]?.textContent ?? "";
     currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
 
-    setStatus("Loading tracks…");
-    const tracks = await getPlaylistTracks(pid);
-    currentRows = tracks.map(t => ({ track: t }));
+    try {
+      setStatus("Loading tracks…");
 
-    applySort();
-    setStatus("Ready.");
-    exportBtn.disabled = false;
-    saveBtn.disabled = false;
-    overwriteBtn.disabled = false;
-    intelligentBtn.disabled = false;
-    randomBtn.disabled = false;
-    sortPlaylistBtn.disabled = false;
-    resetBtn.disabled = false;
+      const tracks = await getPlaylistTracks(pid, {
+        onProgress: ({ loaded, total }) => {
+          if (total) setStatus(`Loading tracks… ${loaded}/${total}`);
+          else setStatus(`Loading tracks… ${loaded}`);
+        },
+      });
 
-    trackEvent("playlist_loaded", {
-      playlist_id: pid,
-      tracks: currentRows.length,
-    });
+      currentRows = tracks.map((t) => ({ track: t }));
+
+      // Keep user's order by default (unless a sort is active)
+      applySort();
+
+      setStatus("Ready.");
+      exportBtn.disabled = false;
+      saveBtn.disabled = false;
+      overwriteBtn.disabled = false;
+      intelligentBtn.disabled = false;
+      randomBtn.disabled = false;
+      sortPlaylistBtn.disabled = false;
+      resetBtn.disabled = false;
+
+      trackEvent("playlist_loaded", {
+        playlist_id: pid,
+        tracks: currentRows.length,
+      });
+    } catch (e) {
+      console.error(e);
+      setStatus("Error: " + (e?.message ?? String(e)));
+    } finally {
+      isLoadingTracks = false;
+      loadBtn.textContent = prevLoadText;
+      playlistSelect.disabled = false;
+      loadBtn.disabled = false;
+
+      const hasTracks = Array.isArray(currentRows) && currentRows.length > 0;
+      if (!hasTracks) {
+        sortPlaylistBtn.disabled = true;
+        intelligentBtn.disabled = true;
+        randomBtn.disabled = true;
+        resetBtn.disabled = true;
+        exportBtn.disabled = true;
+        saveBtn.disabled = true;
+        overwriteBtn.disabled = true;
+      }
+    }
   };
+      loadBtn.textContent = prevLoadText;
+      playlistSelect.disabled = false;
+      // loadBtn.disabled will be re-enabled below based on state
+      loadBtn.disabled = false;
 
-  setStatus("Ready.");
-}
+      // Re-evaluate button states after load
+      const hasTracks = Array.isArray(currentRows) && currentRows.length > 0;
+      sortPlaylistBtn.disabled = !hasTracks;
+      intelligentBtn.disabled = !hasTracks;
+      randomBtn.disabled = !hasTracks;
+      resetBtn.disabled = !hasTracks;
+      exportBtn.disabled = !hasTracks;
+      saveBtn.disabled = !hasTracks;
+      overwriteBtn.disabled = !hasTracks;
+    }
+  }
 
 init().catch((e) => {
   console.error(e);
