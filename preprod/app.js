@@ -23,8 +23,6 @@ function trackEvent(event, params = {}) {
   // GA4 event (safe no-op if not configured)
   gaTrackEvent(event, params);
 }
-);
-}
 const $ = (id) => document.getElementById(id);
 
 
