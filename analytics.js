@@ -1,3 +1,4 @@
+// Build: 2025-12-24T13:18Z ga4-events-v2-fixed
 import { GA_MEASUREMENT_ID } from "./config.js";
 
 let ready = false;

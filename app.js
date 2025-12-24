@@ -1,3 +1,4 @@
+// Build: 2025-12-24T13:18Z ga4-events-v2-fixed
 import { login, logout, getToken } from "./auth.js";
 import {
   getMe,
