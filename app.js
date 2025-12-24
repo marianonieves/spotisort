@@ -11,26 +11,13 @@ import {
 
 
 function trackEvent(event, params = {}) {
-  // 1) GTM-style dataLayer push (if GTM is installed)
-  try {
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ event, ...params });
-  } catch (_) {
-    // ignore
-  }
+  // Send to dataLayer (GTM) if present
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event, ...params });
 
-  // 2) GA4 gtag event (if gtag.js is installed)
-  // Note: GA4 custom parameters must be registered as Custom definitions to appear in reports.
-  try {
-    if (typeof window.gtag === "function") {
-      const clean = {};
-      for (const [k, v] of Object.entries(params || {})) {
-        if (v !== undefined) clean[k] = v;
-      }
-      window.gtag("event", event, clean);
-    }
-  } catch (_) {
-    // ignore
+  // Send to GA4 (gtag.js) if present
+  if (typeof window.gtag === "function") {
+    window.gtag("event", event, params);
   }
 }
 const $ = (id) => document.getElementById(id);
@@ -70,25 +57,6 @@ const sortState = {
   field: null,
   dir: "desc", // 'asc' | 'desc'
 };
-
-// --- Analytics state (frontend-only) ---
-const sessionStartMs = Date.now();
-let hadSort = false;
-let hadSave = false;
-let lastSortType = null;
-let lastSortField = null;
-let lastSortDir = null;
-let lastPlaylistId = null;
-let lastTracksCount = null;
-let pagehideSent = false;
-
-function markSort(type, field = null, dir = null) {
-  hadSort = true;
-  lastSortType = type;
-  lastSortField = field;
-  lastSortDir = dir;
-}
-
 
 function setStatus(msg) {
   const text = (msg ?? "").toString();
@@ -283,7 +251,8 @@ function applyIntelligentSort() {
   // Smart Sort v2: Hook-first + no-repeat-artist + interleaving
   trackEvent("smart_sort_v2");
 
-  sortState.field = "__smart__"; // custom sort (clears header arrows)
+      trackEvent("sort_applied", { sort_type: "smart_sort_v2" });
+sortState.field = "__smart__"; // custom sort (clears header arrows)
   sortState.dir = "desc";
 
   const sorted = smartSortV2(currentRows, {
@@ -298,7 +267,8 @@ function applyIntelligentSort() {
 
   // Backward-compatible event name
   trackEvent("intelligent_sort");
-  setStatus("Smart Sort applied. You can Save it to Spotify.");
+      trackEvent("sort_applied", { sort_type: "intelligent_sort" });
+setStatus("Smart Sort applied. You can Save it to Spotify.");
 }
 
 
@@ -320,6 +290,7 @@ function applyRandomSort() {
     playlist_id: currentPlaylist?.id ?? "",
     tracks: visibleRows.length,
   });
+    trackEvent("sort_applied", { sort_type: "random_sort" });
 }
 
 function renderTable(rows) {
@@ -390,7 +361,8 @@ async function saveAsNewPlaylist() {
   setSaveStatus("Creating a new playlist…");
   trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length });
 
-  const created = await createPlaylist(me.id, name, {
+      trackEvent("save_start", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+const created = await createPlaylist(me.id, name, {
     description: "Sorted with Spoti Sort",
     isPublic: false,
   });
@@ -403,9 +375,8 @@ async function saveAsNewPlaylist() {
     `Done ✅ New playlist created. <a href="${url}" target="_blank" rel="noreferrer">Open it on Spotify</a>`,
     { html: true }
   );
-  hadSave = true;
   trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
-  trackEvent("save_success", { mode: "new", playlist_id: created.id, tracks_count: uris.length });
+    trackEvent("save_success", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 }
 
 async function overwriteCurrentPlaylist() {
@@ -418,15 +389,13 @@ async function overwriteCurrentPlaylist() {
   const ok = window.confirm(
     `Overwrite "${currentPlaylist.name}" on Spotify?\n\nThis will replace the track order in the selected playlist.`
   );
-  if (!ok) {
-    trackEvent("overwrite_cancel", { playlist_id: currentPlaylist?.id ?? "" });
-    return;
-  }
+  if (!ok) return;
 
   setSaveStatus("Overwriting playlist order…");
   trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length });
 
-  await overwritePlaylistItems(currentPlaylist.id, uris);
+      trackEvent("save_start", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+await overwritePlaylistItems(currentPlaylist.id, uris);
 
   const url = `https://open.spotify.com/playlist/${currentPlaylist.id}`;
   setSaveStatus(
@@ -434,9 +403,8 @@ async function overwriteCurrentPlaylist() {
     { html: true }
   );
 
-  hadSave = true;
   trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
-  trackEvent("save_success", { mode: "overwrite", playlist_id: currentPlaylist.id, tracks_count: uris.length });
+    trackEvent("save_success", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 }
 
 async function init() {
@@ -469,48 +437,20 @@ async function init() {
       sortState.dir = sortState.dir === "desc" ? "asc" : "desc";
     }
 
-    markSort("popularity", "popularity", sortState.dir);
-    trackEvent("sort_applied", {
-      sort_type: "popularity",
-      sort_dir: sortState.dir,
-      playlist_id: currentPlaylist?.id ?? playlistSelect.value ?? "",
-      tracks_count: currentRows?.length ?? 0,
-    });
-
     applySort();
+    trackEvent("sort_applied", { sort_type: "popularity", sort_dir: sortState.dir });
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
 
-  intelligentBtn.onclick = () => {
-    markSort("smart_sort_v2");
-    trackEvent("sort_applied", {
-      sort_type: "smart_sort_v2",
-      playlist_id: currentPlaylist?.id ?? "",
-      tracks_count: currentRows?.length ?? 0,
-    });
-    applyIntelligentSort();
-  };
-  randomBtn.onclick = () => {
-    markSort("random");
-    trackEvent("sort_applied", {
-      sort_type: "random",
-      playlist_id: currentPlaylist?.id ?? "",
-      tracks_count: currentRows?.length ?? 0,
-    });
-    applyRandomSort();
-  };
+  intelligentBtn.onclick = () => applyIntelligentSort();
+  randomBtn.onclick = () => applyRandomSort();
 
   resetBtn.onclick = () => {
     // Restore original playlist order (as returned by Spotify)
     trackEvent("reset_order");
-    markSort("reset");
-    trackEvent("sort_applied", {
-      sort_type: "reset",
-      playlist_id: currentPlaylist?.id ?? "",
-      tracks_count: currentRows?.length ?? 0,
-    });
-    sortState.field = null;
+        trackEvent("sort_applied", { sort_type: "reset" });
+sortState.field = null;
     visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
     renderTable(visibleRows);
     setActiveHeader();
@@ -551,18 +491,10 @@ async function init() {
       field,
       dir: sortState.dir,
     });
-
-    markSort("column", field, sortState.dir);
-    trackEvent("sort_applied", {
-      sort_type: "column",
-      sort_field: field,
-      sort_dir: sortState.dir,
-      playlist_id: currentPlaylist?.id ?? "",
-      tracks_count: currentRows?.length ?? 0,
-    });
+    trackEvent("sort_applied", { sort_type: "column", sort_field: field, sort_dir: sortState.dir });
 
     applySort();
-  });
+    });
 
   const token = getToken();
   if (!token?.access_token) {
@@ -588,12 +520,14 @@ async function init() {
   meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
+
+  trackEvent("login_success");
   trackEvent("playlists_loaded", { playlists_count: playlists.length });
   playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
 
   playlistSelect.innerHTML =
     `<option value="">Select a playlist…</option>` +
-    playlists.map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
+    playlists.map(p => `<option value="${p.id}" data-tracks="${p.tracks?.total ?? 0}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
 
   loadBtn.disabled = false;
   exportBtn.disabled = true;
@@ -605,10 +539,6 @@ async function init() {
   loadBtn.onclick = async () => {
     const pid = playlistSelect.value;
     if (!pid) return;
-
-    lastPlaylistId = pid;
-    trackEvent("playlist_selected", { playlist_id: pid });
-    trackEvent("tracks_load_start", { playlist_id: pid });
 
     // Prevent duplicate clicks / concurrent loads
     if (isLoadingTracks) return;
@@ -636,6 +566,13 @@ async function init() {
     const selectedName = playlistSelect.options[playlistSelect.selectedIndex]?.textContent ?? "";
     currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
 
+
+    const tracksTotal = Number(playlistSelect.options[playlistSelect.selectedIndex]?.dataset?.tracks ?? 0);
+
+    // Funnel / product tracking
+    trackEvent("playlist_selected", { playlist_id: pid, playlist_tracks_total: tracksTotal });
+    trackEvent("tracks_load_start", { playlist_id: pid, playlist_tracks_total: tracksTotal });
+
     try {
       setStatus("Loading tracks…");
 
@@ -660,25 +597,22 @@ async function init() {
       sortPlaylistBtn.disabled = false;
       resetBtn.disabled = false;
 
-      // Reset per-playlist session flags
-      hadSort = false;
-      hadSave = false;
-      lastSortType = null;
-      lastSortField = null;
-      lastSortDir = null;
-
-      lastTracksCount = currentRows.length;
-
-      trackEvent("playlist_loaded", {
-        playlist_id: pid,
-        tracks: currentRows.length,
-      });
       trackEvent("tracks_loaded", {
         playlist_id: pid,
         tracks_count: currentRows.length,
+        playlist_tracks_total: tracksTotal,
       });
-    } catch (e) {
+
+      // Backward-compatible event name (legacy)
+      trackEvent("playlist_loaded", {
+        playlist_id: pid,
+        tracks: currentRows.length,
+        tracks_count: currentRows.length,
+        playlist_tracks_total: tracksTotal,
+      });
+} catch (e) {
       console.error(e);
+      trackEvent("tracks_load_error", { playlist_id: pid, message: String(e?.message ?? e) });
       setStatus("Error: " + (e?.message ?? String(e)));
     } finally {
       isLoadingTracks = false;
@@ -715,43 +649,8 @@ async function init() {
     }
   }
 
-
-// Fire best-effort analytics on exit (frontend-only; may be dropped by the browser)
-window.addEventListener("pagehide", () => {
-  if (pagehideSent) return;
-  pagehideSent = true;
-
-  const duration_ms = Date.now() - sessionStartMs;
-
-  const pid = lastPlaylistId || (typeof currentPlaylist !== "undefined" ? currentPlaylist?.id : "") || "";
-  const tracks_count =
-    lastTracksCount ??
-    (typeof currentRows !== "undefined" && Array.isArray(currentRows) ? currentRows.length : 0);
-
-  // 1) Session end (time-on-site proxy; GA4 also tracks engagement time automatically)
-  trackEvent("session_end", {
-    duration_ms,
-    had_sort: hadSort ? 1 : 0,
-    had_save: hadSave ? 1 : 0,
-    playlist_id: pid,
-    tracks_count,
-  });
-
-  // 2) Sorted but did not save
-  if (hadSort && !hadSave) {
-    trackEvent("abandon_after_sort", {
-      playlist_id: pid,
-      tracks_count,
-      last_sort_type: lastSortType ?? "",
-      last_sort_field: lastSortField ?? "",
-      last_sort_dir: lastSortDir ?? "",
-    });
-  }
-});
-
-
-
 init().catch((e) => {
   console.error(e);
-  setStatus("Error: " + (e?.message ?? String(e)));
+  trackEvent("tracks_load_error", { playlist_id: pid, message: String(e?.message ?? e) });
+      setStatus("Error: " + (e?.message ?? String(e)));
 });
