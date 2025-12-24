@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotify Callback</title>
+  
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-N7H26368');</script>
+  <!-- End Google Tag Manager -->
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-N7H26368"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+<main class="card">
+    <h1>Autenticando…</h1>
+    <p id="msg" class="muted"></p>
+  </main>
+
+  <script type="module">
+
+    import { handleCallback } from "./auth.js";
+    import { initAnalytics, trackEvent as gaTrackEvent } from "./analytics.js";
+
+    initAnalytics();
+
+    function track(event, params = {}) {
+      // GTM-compatible dataLayer event
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event, ...params });
+
+      // GA4 event (if configured)
+      gaTrackEvent(event, params);
+    }
+
+    const msg = document.getElementById("msg");
+    handleCallback()
+      .then(() => {
+        track("auth_success");
+        msg.textContent = "Done. Returning to the app…";
+        const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/\/callback\.html$/, "/");
+        url.search = "";
+        url.hash = "";
+        window.location.replace(url.toString());
+      })
+      .catch((e) => {
+        track("auth_error", { message: String(e?.message ?? e) });
+        console.error(e);
+        msg.textContent = "Error: " + (e?.message ?? String(e));
+      });
+
+  </script>
+</body>
+</html>
