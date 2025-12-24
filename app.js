@@ -485,7 +485,7 @@ async function saveAsNewPlaylist() {
     { html: true }
   );
   trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
-  trackEvent(\"save_success\", { mode: \"new\", playlist_id: created.id, tracks_count: uris.length });
+  trackEvent("save_success", { mode: "new", playlist_id: created.id, tracks_count: uris.length });
 }
 
 async function overwriteCurrentPlaylist() {
@@ -499,7 +499,7 @@ async function overwriteCurrentPlaylist() {
     `Overwrite "${currentPlaylist.name}" on Spotify?\n\nThis will replace the track order in the selected playlist.`
   );
   if (!ok) {
-    trackEvent(\"overwrite_cancel\", { playlist_id: currentPlaylist.id });
+    trackEvent("overwrite_cancel", { playlist_id: currentPlaylist.id });
     return;
   }
   setSaveStatus("Overwriting playlist order…");
@@ -514,7 +514,7 @@ async function overwriteCurrentPlaylist() {
   );
 
   trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
-  trackEvent(\"save_success\", { mode: \"overwrite\", playlist_id: currentPlaylist.id, tracks_count: uris.length });
+  trackEvent("save_success", { mode: "overwrite", playlist_id: currentPlaylist.id, tracks_count: uris.length });
 }
 
 async function init() {
@@ -628,7 +628,7 @@ async function init() {
   meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
-  trackEvent(\"playlists_loaded\", { playlists_count: playlists.length });
+  trackEvent("playlists_loaded", { playlists_count: playlists.length });
   playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
 
   playlistSelect.innerHTML =
@@ -647,8 +647,8 @@ async function init() {
     if (!pid) return;
 
 
-    trackEvent(\"playlist_selected\", { playlist_id: pid });
-    trackEvent(\"tracks_load_start\", { playlist_id: pid });
+    trackEvent("playlist_selected", { playlist_id: pid });
+    trackEvent("tracks_load_start", { playlist_id: pid });
     // Prevent duplicate clicks / concurrent loads
     if (isLoadingTracks) return;
     isLoadingTracks = true;
@@ -699,11 +699,11 @@ async function init() {
       sortPlaylistBtn.disabled = false;
       resetBtn.disabled = false;
 
-      trackEvent(\"tracks_loaded\", { playlist_id: pid, tracks_count: currentRows.length });
+      trackEvent("tracks_loaded", { playlist_id: pid, tracks_count: currentRows.length });
 
 
 
-      trackEvent(\"playlist_loaded\", {
+      trackEvent("playlist_loaded", {
         playlist_id: pid,
         tracks: currentRows.length,
       });
