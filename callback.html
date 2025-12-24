@@ -41,12 +41,15 @@
     function track(event, params = {}) {
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ event, ...params });
+      if (typeof window.gtag === "function") {
+        window.gtag("event", event, params);
+      }
     }
 
     const msg = document.getElementById("msg");
     handleCallback()
       .then(() => {
-        track("auth_success");
+        track("auth_success", { method: "pkce" });
         msg.textContent = "Done. Returning to the app…";
         const url = new URL(window.location.href);
         url.pathname = url.pathname.replace(/\/callback\.html$/, "/");
@@ -55,7 +58,7 @@
         window.location.replace(url.toString());
       })
       .catch((e) => {
-        track("auth_error", { message: String(e?.message ?? e) });
+        track("auth_error", { method: "pkce", message: String(e?.message ?? e) });
         console.error(e);
         msg.textContent = "Error: " + (e?.message ?? String(e));
       });

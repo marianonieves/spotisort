@@ -11,8 +11,14 @@ import {
 
 
 function trackEvent(event, params = {}) {
+  // Send to dataLayer (GTM) if present
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event, ...params });
+
+  // Send to GA4 (gtag.js) if present
+  if (typeof window.gtag === "function") {
+    window.gtag("event", event, params);
+  }
 }
 const $ = (id) => document.getElementById(id);
 
@@ -245,7 +251,8 @@ function applyIntelligentSort() {
   // Smart Sort v2: Hook-first + no-repeat-artist + interleaving
   trackEvent("smart_sort_v2");
 
-  sortState.field = "__smart__"; // custom sort (clears header arrows)
+      trackEvent("sort_applied", { sort_type: "smart_sort_v2" });
+sortState.field = "__smart__"; // custom sort (clears header arrows)
   sortState.dir = "desc";
 
   const sorted = smartSortV2(currentRows, {
@@ -260,7 +267,8 @@ function applyIntelligentSort() {
 
   // Backward-compatible event name
   trackEvent("intelligent_sort");
-  setStatus("Smart Sort applied. You can Save it to Spotify.");
+      trackEvent("sort_applied", { sort_type: "intelligent_sort" });
+setStatus("Smart Sort applied. You can Save it to Spotify.");
 }
 
 
@@ -282,6 +290,7 @@ function applyRandomSort() {
     playlist_id: currentPlaylist?.id ?? "",
     tracks: visibleRows.length,
   });
+    trackEvent("sort_applied", { sort_type: "random_sort" });
 }
 
 function renderTable(rows) {
@@ -352,7 +361,8 @@ async function saveAsNewPlaylist() {
   setSaveStatus("Creating a new playlist…");
   trackEvent("save_new_start", { playlist_id: currentPlaylist?.id ?? "", tracks: uris.length });
 
-  const created = await createPlaylist(me.id, name, {
+      trackEvent("save_start", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+const created = await createPlaylist(me.id, name, {
     description: "Sorted with Spoti Sort",
     isPublic: false,
   });
@@ -366,6 +376,7 @@ async function saveAsNewPlaylist() {
     { html: true }
   );
   trackEvent("save_new_done", { new_playlist_id: created.id, tracks: uris.length });
+    trackEvent("save_success", { mode: "new", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 }
 
 async function overwriteCurrentPlaylist() {
@@ -383,7 +394,8 @@ async function overwriteCurrentPlaylist() {
   setSaveStatus("Overwriting playlist order…");
   trackEvent("overwrite_start", { playlist_id: currentPlaylist.id, tracks: uris.length });
 
-  await overwritePlaylistItems(currentPlaylist.id, uris);
+      trackEvent("save_start", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
+await overwritePlaylistItems(currentPlaylist.id, uris);
 
   const url = `https://open.spotify.com/playlist/${currentPlaylist.id}`;
   setSaveStatus(
@@ -392,6 +404,7 @@ async function overwriteCurrentPlaylist() {
   );
 
   trackEvent("overwrite_done", { playlist_id: currentPlaylist.id, tracks: uris.length });
+    trackEvent("save_success", { mode: "overwrite", playlist_id: currentPlaylist?.id ?? "", tracks_count: currentRows?.length ?? 0 });
 }
 
 async function init() {
@@ -425,6 +438,7 @@ async function init() {
     }
 
     applySort();
+    trackEvent("sort_applied", { sort_type: "popularity", sort_dir: sortState.dir });
     setStatus(`Sorted by Popularity (${sortState.dir === "desc" ? "desc" : "asc"}). Now you can save it to Spotify.`);
   };
 
@@ -435,7 +449,8 @@ async function init() {
   resetBtn.onclick = () => {
     // Restore original playlist order (as returned by Spotify)
     trackEvent("reset_order");
-    sortState.field = null;
+        trackEvent("sort_applied", { sort_type: "reset" });
+sortState.field = null;
     visibleRows = currentRows.map((r, i) => ({ ...r, __index: i + 1 }));
     renderTable(visibleRows);
     setActiveHeader();
@@ -476,7 +491,7 @@ async function init() {
       field,
       dir: sortState.dir,
     });
-
+    trackEvent("sort_applied", { sort_type: "column", sort_field: field, sort_dir: sortState.dir });
 
     applySort();
     });
@@ -505,11 +520,14 @@ async function init() {
   meEl.textContent = `Logged in as ${me.display_name ?? me.id ?? ""}`;
 
   const playlists = await getMyPlaylists();
+
+  trackEvent("login_success");
+  trackEvent("playlists_loaded", { playlists_count: playlists.length });
   playlists.sort((a, b) => (a?.name ?? "").localeCompare((b?.name ?? ""), undefined, { sensitivity: "base" }));
 
   playlistSelect.innerHTML =
     `<option value="">Select a playlist…</option>` +
-    playlists.map(p => `<option value="${p.id}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
+    playlists.map(p => `<option value="${p.id}" data-tracks="${p.tracks?.total ?? 0}">${p.name} (${p.tracks?.total ?? 0})</option>`).join("");
 
   loadBtn.disabled = false;
   exportBtn.disabled = true;
@@ -548,6 +566,13 @@ async function init() {
     const selectedName = playlistSelect.options[playlistSelect.selectedIndex]?.textContent ?? "";
     currentPlaylist = { id: pid, name: selectedName.replace(/\s*\(\d+\)\s*$/, "") };
 
+
+    const tracksTotal = Number(playlistSelect.options[playlistSelect.selectedIndex]?.dataset?.tracks ?? 0);
+
+    // Funnel / product tracking
+    trackEvent("playlist_selected", { playlist_id: pid, playlist_tracks_total: tracksTotal });
+    trackEvent("tracks_load_start", { playlist_id: pid, playlist_tracks_total: tracksTotal });
+
     try {
       setStatus("Loading tracks…");
 
@@ -572,12 +597,22 @@ async function init() {
       sortPlaylistBtn.disabled = false;
       resetBtn.disabled = false;
 
+      trackEvent("tracks_loaded", {
+        playlist_id: pid,
+        tracks_count: currentRows.length,
+        playlist_tracks_total: tracksTotal,
+      });
+
+      // Backward-compatible event name (legacy)
       trackEvent("playlist_loaded", {
         playlist_id: pid,
         tracks: currentRows.length,
+        tracks_count: currentRows.length,
+        playlist_tracks_total: tracksTotal,
       });
-    } catch (e) {
+} catch (e) {
       console.error(e);
+      trackEvent("tracks_load_error", { playlist_id: pid, message: String(e?.message ?? e) });
       setStatus("Error: " + (e?.message ?? String(e)));
     } finally {
       isLoadingTracks = false;
@@ -616,5 +651,6 @@ async function init() {
 
 init().catch((e) => {
   console.error(e);
-  setStatus("Error: " + (e?.message ?? String(e)));
+  trackEvent("tracks_load_error", { playlist_id: pid, message: String(e?.message ?? e) });
+      setStatus("Error: " + (e?.message ?? String(e)));
 });
