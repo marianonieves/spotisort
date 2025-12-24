@@ -698,25 +698,8 @@ sortState.field = null;
       }
     }
   };
-      loadBtn.textContent = prevLoadText;
-      playlistSelect.disabled = false;
-      // loadBtn.disabled will be re-enabled below based on state
-      loadBtn.disabled = false;
-
-      // Re-evaluate button states after load
-      const hasTracks = Array.isArray(currentRows) && currentRows.length > 0;
-      sortPlaylistBtn.disabled = !hasTracks;
-      intelligentBtn.disabled = !hasTracks;
-      randomBtn.disabled = !hasTracks;
-      resetBtn.disabled = !hasTracks;
-      exportBtn.disabled = !hasTracks;
-      saveBtn.disabled = !hasTracks;
-      overwriteBtn.disabled = !hasTracks;
-    }
-  }
-
 init().catch((e) => {
   console.error(e);
-  trackEvent("tracks_load_error", { playlist_id: pid, message: String(e?.message ?? e) });
-      setStatus("Error: " + (e?.message ?? String(e)));
+  trackEvent("app_init_error", { message: String(e?.message ?? e) });
+  setStatus("Unexpected error: " + (e?.message ?? String(e)));
 });
